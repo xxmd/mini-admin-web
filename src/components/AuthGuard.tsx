@@ -1,19 +1,33 @@
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import React, {useEffect} from 'react';
+import {Navigate, useLocation} from 'react-router-dom';
+import {Spin} from 'antd';
+import {useAuth} from '@/store/AuthContext';
 
 interface AuthGuardProps {
     children: React.ReactNode;
 }
 
-export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
-    const token = localStorage.getItem('token');
+export const AuthGuard: React.FC<AuthGuardProps> = ({children}) => {
+    const {token, user, loading, fetchUserInfo} = useAuth();
     const location = useLocation();
 
-    // 如果没有 token，跳转到登录页，并通过 state 记录当前尝试访问的页面
+    useEffect(() => {
+        if (token && !user) {
+            fetchUserInfo();
+        }
+    }, [token, user, fetchUserInfo]);
+
     if (!token) {
-        return <Navigate to="/login" state={{ from: location }} replace />;
+        return <Navigate to="/login" state={{from: location}} replace/>;
     }
 
-    // 有 token，正常渲染受保护的子组件/布局
+    if (loading) {
+        return (
+            <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh'}}>
+                <Spin size="large" tip="加载中..." />
+            </div>
+        );
+    }
+
     return <>{children}</>;
 };

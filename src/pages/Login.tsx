@@ -3,6 +3,7 @@ import {Form, Input, Button, Card, message} from 'antd';
 import {UserOutlined, LockOutlined} from '@ant-design/icons';
 import {useNavigate, useLocation} from 'react-router-dom';
 import {loginApi, type UserLoginResponse} from '@/api/auth';
+import {useAuth} from '@/store/AuthContext';
 
 // 定义表单字段类型
 interface LoginFormField {
@@ -15,6 +16,7 @@ const Login: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
+    const {setToken} = useAuth();
 
     const redirectUrl = (location.state as { from?: string })?.from || '/dashboard';
 
@@ -27,7 +29,7 @@ const Login: React.FC = () => {
             });
             if (res.success) {
                 message.success('登录成功！');
-                localStorage.setItem('token', res.data?.token as string);
+                setToken(res.data?.token as string);
                 navigate(redirectUrl, {replace: true});
             } else {
                 message.error(res.message || '登录失败，请稍后重试');

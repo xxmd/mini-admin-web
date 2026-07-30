@@ -2,7 +2,8 @@ import React from 'react';
 import {RouterProvider} from 'react-router-dom';
 import {ConfigProvider} from 'antd';
 import zhCN from 'antd/locale/zh_CN';
-import {router} from './router'; // 引入你配置好的 router 路由实例
+import {router} from './router';
+import {AuthProvider} from '@/store/AuthContext';
 
 const App: React.FC = () => {
     return (
@@ -10,12 +11,14 @@ const App: React.FC = () => {
             locale={zhCN}
             theme={{
                 token: {
-                    colorPrimary: '#1677ff', // 可在此自定义全局主色调
+                    colorPrimary: '#1677ff',
                     borderRadius: 6,
                 },
             }}
         >
-            <RouterProvider router={router}/>
+            <AuthProvider>
+                <RouterProvider router={router}/>
+            </AuthProvider>
         </ConfigProvider>
     );
 };
