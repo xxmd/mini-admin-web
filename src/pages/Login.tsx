@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 import {Form, Input, Button, Card, message} from 'antd';
 import {UserOutlined, LockOutlined} from '@ant-design/icons';
 import {useNavigate, useLocation} from 'react-router-dom';
-import {loginApi, type UserLoginResponse} from '@/api/auth';
+import authApi, {type LoginResponse} from '@/api/auth';
 import {useAuth} from '@/store/AuthContext';
 
 // 定义表单字段类型
@@ -23,7 +23,7 @@ const Login: React.FC = () => {
     const onFinish = async (values: LoginFormField) => {
         setLoading(true);
         try {
-            const res: UserLoginResponse = await loginApi({
+            const res: LoginResponse = await authApi.login({
                 username: values.username!,
                 password: values.password!,
             });
