@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { message } from 'antd';
-import { router } from '@/router';
+// import { router } from '@/router';
 
 const request = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL,
@@ -29,7 +29,7 @@ request.interceptors.response.use(
 
                 // 3. 跳转到登录页
                 // 注意：由于无法在非组件中使用 useNavigate，我们使用 router.navigate
-                router.navigate('/login', { replace: true });
+                // router.navigate('/login', { replace: true });
 
                 // 4. 可选：如果需要彻底重置内存中的 AuthContext 状态，可以强制刷新
                 // window.location.reload();

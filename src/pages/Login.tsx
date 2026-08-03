@@ -16,7 +16,7 @@ const Login: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
-    const {setToken} = useAuth();
+    const {login} = useAuth();
 
     const redirectUrl = (location.state as { from?: string })?.from || '/dashboard';
 
@@ -29,7 +29,7 @@ const Login: React.FC = () => {
             });
             if (res.success) {
                 message.success('登录成功！');
-                setToken(res.data?.token as string);
+                await login(res.data?.token as string);
                 navigate(redirectUrl, {replace: true});
             } else {
                 message.error(res.message || '登录失败，请稍后重试');

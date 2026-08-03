@@ -1,30 +1,25 @@
-import React, {useEffect} from 'react';
+import React from 'react';
 import {Navigate, useLocation} from 'react-router-dom';
-import {Spin} from 'antd';
 import {useAuth} from '@/store/AuthContext';
+import {Spin} from 'antd';
 
 interface AuthGuardProps {
     children: React.ReactNode;
 }
 
 export const AuthGuard: React.FC<AuthGuardProps> = ({children}) => {
-    const {token, user, loading, fetchUserInfo} = useAuth();
+    const {token, user} = useAuth();
     const location = useLocation();
 
-    useEffect(() => {
-        if (token && !user) {
-            fetchUserInfo();
-        }
-    }, [token, user, fetchUserInfo]);
-
     if (!token) {
-        return <Navigate to="/login" state={{from: location}} replace/>;
+        return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname)}`} state={{from: location}}
+                         replace/>;
     }
 
-    if (loading) {
+    if (!user) {
         return (
             <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh'}}>
-                <Spin size="large" tip="加载中..." />
+                <Spin size="large" tip="加载菜单与权限中..."/>
             </div>
         );
     }
