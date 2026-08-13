@@ -1,110 +1,118 @@
-import React, {useCallback, useEffect, useState} from 'react';
-import {Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Radio, Space, Table, TreeSelect, message} from 'antd';
-import {PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined, MinusOutlined} from '@ant-design/icons';
-import menuApi, {type Menu, type MenuForm} from '@/api/menu'
-import enumApi, {type EnumOption} from '@/api/enum'
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {Button, Form, Input, InputNumber, message, Modal, Popconfirm, Radio, Space, Table, TreeSelect} from 'antd';
+import {DeleteOutlined, EditOutlined, PlusOutlined} from '@ant-design/icons';
+import menuApi, {type Menu, type MenuForm, MenuType} from '@/api/menu'
+import enumApi, {EnumName, type EnumOption} from '@/api/enum'
 
-const buildTree = (flatList: Menu[]): Menu[] => {
-    const map = new Map<number, Menu>();
-    const roots: Menu[] = [];
-    flatList.forEach(item => {
-        map.set(item.id, {...item});
-    });
-    map.forEach(item => {
-        if (item.parentId === null) {
-            roots.push(item);
-        } else {
-            const parent = map.get(item.parentId);
-            if (parent) {
-                if (!parent.children) {
-                    parent.children = [];
-                }
-                parent.children.push(item);
-            }
-        }
-    });
-    roots.forEach(root => {
-        root.children?.sort((a, b) => a.sort - b.sort);
-    });
-    console.log( roots)
-    return roots;
-};
+interface MenuOption {
+    label: string;
+    value: number;
+    disabled: boolean;
+    children?: MenuOption[];
+}
+
+function convertToOptions(menus: Iterable<Menu>, editingId: number | undefined): MenuOption[] {
+    const options: MenuOption[] = [];
+    for (const menu of menus) {
+        if (menu.type === MenuType.BUTTON) continue;
+        const isEditingOrDescendant = menu.id === editingId;
+        options.push({
+            label: menu.title,
+            value: menu.id,
+            disabled: isEditingOrDescendant,
+            children: menu.hasChildren ? convertToOptions(menu.children!, editingId) : undefined,
+        });
+    }
+    return options;
+}
 
 const MenuManagement: React.FC = () => {
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [data, setData] = useState<Menu[]>([]);
     const [modalOpen, setModalOpen] = useState(false);
     const [confirmLoading, setConfirmLoading] = useState(false);
     const [form] = Form.useForm<MenuForm>();
-    const [typeOptions, setTypeOptions] = useState<EnumOption[]>([]);
-    const [parentFixed, setParentFixed] = useState(false);
+    const [menuTypeOptions, setMenuTypeOptions] = useState<EnumOption[]>([]);
     const [editingId, setEditingId] = useState<number | undefined>(undefined);
+    const [deletingIds, setDeletingIds] = useState<number[]>([]);
 
-    const menuType = Form.useWatch('type', form);
-
-    const typeLabelMap = useCallback(
-        (value: string) => typeOptions.find(opt => opt.value === value)?.label ?? value,
-        [typeOptions],
-    );
-
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const res = await menuApi.findAll();
-            setData(buildTree(res));
-        } finally {
+    function requestTableData() {
+        menuApi.findAll().then(menus => {
+            setData(menus);
+        }).catch(error => {
+            void message.error('请求菜单数据失败: ' + error);
+        }).finally(() => {
             setLoading(false);
-        }
-    }, []);
+        });
+    }
+
+    function refreshTableData() {
+        setLoading(true);
+        requestTableData();
+    }
+
+    function requestMenuTypeOptions() {
+        enumApi.get(EnumName.MenuType).then(menuTypeOptions => {
+            setMenuTypeOptions(menuTypeOptions);
+        }).catch(error => {
+            void message.error('请求菜单类型数据失败: ' + error);
+        });
+    }
 
     useEffect(() => {
-        fetchData();
-        enumApi.get('MenuType').then(setTypeOptions);
-    }, [fetchData]);
+        requestTableData();
+        requestMenuTypeOptions();
+    }, []);
 
-    const toTreeSelectData = (nodes: Menu[]): {title: string; value: number; disabled?: boolean; children?: any[]}[] =>
-        nodes.map(node => ({
-            title: node.title,
-            value: node.id,
-            disabled: node.id === editingId ? true : undefined,
-            children: node.children?.length ? toTreeSelectData(node.children) : undefined,
-        }));
+    const treeMenuOptions = useMemo(() => {
+        return convertToOptions(data, editingId);
+    }, [data, editingId]);
 
-    const handleAdd = () => {
+    const menuType: MenuType = Form.useWatch<MenuType>('type', form);
+    const requireInputPath = menuType === MenuType.CATEGORY || menuType === MenuType.MENU;
+    const requireInputComponent = menuType === MenuType.MENU;
+    const requireInputPermission = menuType === MenuType.MENU || menuType === MenuType.BUTTON;
+
+    const typeLabelMap = useCallback(
+        (value: string) => menuTypeOptions.find(opt => opt.value === value)?.label ?? value,
+        [menuTypeOptions],
+    );
+
+    function handleCreate() {
         form.resetFields();
-        form.setFieldsValue({type: 'CATEGORY'});
-        setParentFixed(false);
+        form.setFieldsValue({type: MenuType.CATEGORY});
         setEditingId(undefined);
         setModalOpen(true);
-    };
+    }
 
-    const handleEdit = (record: Menu) => {
+    function handleEdit(menu: Menu) {
         form.resetFields();
         form.setFieldsValue({
-            id: record.id,
-            parentId: record.parentId,
-            type: record.type,
-            title: record.title,
-            path: record.path,
-            component: record.component,
-            permission: record.permission,
-            sort: record.sort,
-            hidden: record.hidden,
+            id: menu.id,
+            parentId: menu.parentId,
+            type: menu.type,
+            title: menu.title,
+            path: menu.path,
+            component: menu.component,
+            permission: menu.permission,
+            sort: menu.sort,
+            hidden: menu.hidden,
         });
-        setParentFixed(false);
-        setEditingId(record.id);
+        setEditingId(menu.id);
         setModalOpen(true);
-    };
+    }
 
-    const handleDelete = async (id: number) => {
-        try {
-            await menuApi.delete([id]);
-            message.success('删除成功');
-            fetchData();
-        } catch (error) {
-            message.error('删除失败');
-        }
-    };
+    function handleDelete(ids: number[]) {
+        setDeletingIds(ids);
+        menuApi.delete(ids).then(() => {
+            void message.success('删除成功');
+            refreshTableData();
+        }).catch(error => {
+            void message.error('删除失败: ' + error);
+        }).finally(() => {
+            setDeletingIds([]);
+        })
+    }
 
     const handleSubmit = async () => {
         try {
@@ -118,9 +126,9 @@ const MenuManagement: React.FC = () => {
                 message.success('新增成功');
             }
             setModalOpen(false);
-            fetchData();
+            refreshTableData();
         } catch (error) {
-            // validateFields rejected or api error
+            void message.error('表单提交失败: ' + error);
         } finally {
             setConfirmLoading(false);
         }
@@ -161,13 +169,14 @@ const MenuManagement: React.FC = () => {
         {
             title: '操作',
             key: 'action',
-            render: (_: unknown, record: Menu) => (
+            render: (_: unknown, menu: Menu) => (
                 <Space>
-                    <Button type="link" size="small" icon={<EditOutlined/>} onClick={() => handleEdit(record)}>
+                    <Button type="link" size="small" icon={<EditOutlined/>} onClick={() => handleEdit(menu)}>
                         编辑
                     </Button>
-                    <Popconfirm title="确认删除该菜单？" onConfirm={() => handleDelete(record.id)}>
-                        <Button type="link" size="small" danger icon={<DeleteOutlined/>}>
+                    <Popconfirm title="确认删除该菜单？" onConfirm={() => handleDelete([menu.id])}>
+                        <Button type="link" size="small" danger icon={<DeleteOutlined/>}
+                                loading={deletingIds.includes(menu.id)}>
                             删除
                         </Button>
                     </Popconfirm>
@@ -177,44 +186,34 @@ const MenuManagement: React.FC = () => {
     ];
 
     return (
-        <div style={{padding: 24}}>
-            <Card
-                title="菜单管理"
-                extra={
-                    <Space>
-                        <Button icon={<ReloadOutlined/>} onClick={fetchData}>刷新</Button>
-                        <Button type="primary" icon={<PlusOutlined/>} onClick={() => handleAdd()}>
-                            新增
-                        </Button>
-                    </Space>
-                }
-            >
-                <Table
-                    rowKey="id"
-                    loading={loading}
-                    columns={columns}
-                    dataSource={data}
-                    pagination={false}
-                    defaultExpandAllRows
-                />
-            </Card>
-
+        <>
+            <div style={{marginBottom: 10}}>
+                <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>
+                    新增
+                </Button>
+            </div>
+            <Table
+                rowKey="id"
+                loading={loading}
+                columns={columns}
+                dataSource={data}
+                pagination={false}
+            />
             <Modal
-                title="菜单配置"
                 open={modalOpen}
                 onOk={handleSubmit}
                 onCancel={() => setModalOpen(false)}
                 confirmLoading={confirmLoading}
                 destroyOnHidden
             >
-                <Form form={form} layout="vertical" style={{marginTop: 16}}>
+                <Form form={form} layout="horizontal" labelAlign="left" labelCol={{span: 4}} wrapperCol={{span: 18}}
+                      style={{marginTop: 16}}>
                     <Form.Item name="id" hidden>
                         <Input/>
                     </Form.Item>
                     <Form.Item name="parentId" label="上层目录">
                         <TreeSelect
-                            treeData={toTreeSelectData(data)}
-                            disabled={parentFixed}
+                            treeData={treeMenuOptions}
                             allowClear
                             placeholder=""
                             treeDefaultExpandAll
@@ -222,32 +221,29 @@ const MenuManagement: React.FC = () => {
                     </Form.Item>
                     <Form.Item name="type" label="菜单类型" rules={[{required: true}]}>
                         <Radio.Group>
-                            {typeOptions.map(opt => (
+                            {menuTypeOptions.map(opt => (
                                 <Radio key={opt.value} value={opt.value}>{opt.label}</Radio>
                             ))}
                         </Radio.Group>
                     </Form.Item>
                     <Form.Item name="title" label="菜单标题" rules={[{required: true, message: '请输入菜单标题'}]}>
-                        <Input placeholder="请输入菜单标题"/>
+                        <Input/>
                     </Form.Item>
-                    {(menuType === 'CATEGORY' || menuType === 'MENU') && (
+                    {requireInputPath && (
                         <Form.Item name="path" label="路由路径" rules={[{required: true, message: '请输入路由路径'}]}>
-                            <Input placeholder="例如: /system/menu"/>
+                            <Input/>
                         </Form.Item>
                     )}
-                    {menuType === 'MENU' && (
-                        <>
-                            <Form.Item name="component" label="组件路径">
-                                <Input placeholder="例如: system/MenuManagement"/>
-                            </Form.Item>
-                            <Form.Item name="permission" label="权限标识">
-                                <Input placeholder="例如: system:menu:list"/>
-                            </Form.Item>
-                        </>
+                    {requireInputComponent && (
+                        <Form.Item name="component" label="组件路径"
+                                   rules={[{required: true, message: '请输入组件路径'}]}>
+                            <Input/>
+                        </Form.Item>
                     )}
-                    {menuType === 'BUTTON' && (
-                        <Form.Item name="permission" label="权限标识" rules={[{required: true, message: '请输入权限标识'}]}>
-                            <Input placeholder="例如: system:menu:add"/>
+                    {requireInputPermission && (
+                        <Form.Item name="permission" label="权限标识"
+                                   rules={[{required: true, message: '请输入权限标识'}]}>
+                            <Input/>
                         </Form.Item>
                     )}
                     <Form.Item name="sort" label="排序" initialValue={99}>
@@ -261,7 +257,7 @@ const MenuManagement: React.FC = () => {
                     </Form.Item>
                 </Form>
             </Modal>
-        </div>
+        </>
     );
 };
 

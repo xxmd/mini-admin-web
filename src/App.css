@@ -1,0 +1,4 @@
+.ant-form-inline .ant-input-affix-wrapper,
+.ant-form-inline .ant-select {
+    width: 200px; /* 统一改这里就行 */
+}

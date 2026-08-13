@@ -1,11 +1,43 @@
 import {createBrowserRouter, Navigate, redirect} from 'react-router-dom';
 import type {RouteObject} from 'react-router-dom';
-import {BasicLayout} from '@/layouts/BasicLayout';
+import {Layout} from '@/layout';
 import {AuthGuard} from '@/components/AuthGuard';
 import Login from '@/pages/Login';
-import Dashboard from '@/pages/Dashboard';
+import Welcome from '@/pages/Welcome';
+import {buildDynamicRoutes} from "@/router/dynamicRoutes.tsx";
+import type {Menu} from "@/api/menu.ts";
 
-export function createAppRouter(dynamicRoutes: RouteObject[] = []) {
+const NotFound = () => <div style={{padding: 24}}>404 Not Found</div>;
+
+function buildStaticRoutes(): RouteObject[] {
+    return [
+        {index: true, element: <Navigate to="/welcome" replace/>},
+        {path: 'welcome', element: <Welcome/>},
+    ];
+}
+
+function buildFallbackRoutes(): RouteObject[] {
+    return [
+        {path: '*', element: <NotFound/>},
+    ];
+}
+
+export function createAppRouter(menus: Menu[]) {
+    const rootRoute: RouteObject = {
+        id: 'root',
+        path: '/',
+        element: (
+            <AuthGuard>
+                <Layout/>
+            </AuthGuard>
+        ),
+        children: [
+            ...buildStaticRoutes(),
+            ...(buildDynamicRoutes(menus)),
+            ...buildFallbackRoutes(),
+        ],
+    };
+
     return createBrowserRouter([
         {
             path: '/login',
@@ -16,22 +48,8 @@ export function createAppRouter(dynamicRoutes: RouteObject[] = []) {
                 }
                 return null;
             },
-            element: <Login />,
+            element: <Login/>,
         },
-        {
-            id: 'root',
-            path: '/',
-            element: (
-                <AuthGuard>
-                    <BasicLayout />
-                </AuthGuard>
-            ),
-            children: [
-                { index: true, element: <Navigate to="/dashboard" replace /> },
-                { path: 'dashboard', element: <Dashboard /> },
-                ...dynamicRoutes,
-                { path: '*', element: <div style={{ padding: 24 }}>404 Not Found</div> },
-            ],
-        },
+        rootRoute,
     ]);
 }

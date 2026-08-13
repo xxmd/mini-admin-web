@@ -3,7 +3,7 @@ import {Form, Input, Button, Card, message} from 'antd';
 import {UserOutlined, LockOutlined} from '@ant-design/icons';
 import {useNavigate, useLocation} from 'react-router-dom';
 import authApi, {type LoginResponse} from '@/api/auth';
-import {useAuth} from '@/store/AuthContext';
+import {useAuth} from '../store/auth/AuthContext';
 
 // 定义表单字段类型
 interface LoginFormField {

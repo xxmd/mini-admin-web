@@ -5,7 +5,9 @@ export interface EnumOption {
     label: string;
 }
 
-export type EnumName = 'MenuType';
+export enum EnumName {
+    MenuType = 'MenuType',
+}
 
 export default {
     get(name: EnumName): Promise<EnumOption[]> {

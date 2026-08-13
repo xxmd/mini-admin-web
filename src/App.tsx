@@ -1,23 +1,25 @@
 import React from 'react';
-import { RouterProvider } from 'react-router-dom';
-import { ConfigProvider, Spin } from 'antd';
+import {RouterProvider} from 'react-router-dom';
+import {ConfigProvider, Spin} from 'antd';
 import zhCN from 'antd/locale/zh_CN';
-import { createAppRouter } from './router';
-import { AuthProvider, useAuth } from '@/store/AuthContext';
+import {createAppRouter} from './router';
+import {AuthProvider} from './store/auth/AuthProvider.tsx';
+import {useAuth} from "@/store/auth/AuthContext.ts";
+import './App.css'
 
 const RouterView: React.FC = () => {
-    const { initialized, dynamicRoutes } = useAuth();
+    const {initialized, menus} = useAuth();
 
     if (!initialized) {
         return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-                <Spin size="large" description="正在初始化..." />
+            <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh'}}>
+                <Spin size="large" description="正在初始化..."/>
             </div>
         );
     }
 
-    const router = createAppRouter(dynamicRoutes);
-    return <RouterProvider router={router} />;
+    const router = createAppRouter(menus);
+    return <RouterProvider router={router}/>;
 };
 
 const App: React.FC = () => {
@@ -25,14 +27,11 @@ const App: React.FC = () => {
         <ConfigProvider
             locale={zhCN}
             theme={{
-                token: {
-                    colorPrimary: '#1677ff',
-                    borderRadius: 6,
-                },
+                token: {},
             }}
         >
             <AuthProvider>
-                <RouterView />
+                <RouterView/>
             </AuthProvider>
         </ConfigProvider>
     );

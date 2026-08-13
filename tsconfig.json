@@ -9,8 +9,6 @@
     }
   ],
   "compilerOptions": {
-    /* ...其他原有配置... */
-
     "baseUrl": ".",
     "paths": {
       "@/*": [

@@ -1,0 +1,24 @@
+.layout-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.layout-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.layout-right-section {
+    padding: 16px;
+}
+
+.layout-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.layout-content {
+    flex: 1;
+}

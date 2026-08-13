@@ -1,6 +1,6 @@
 import React from 'react';
 import {Navigate, useLocation} from 'react-router-dom';
-import {useAuth} from '@/store/AuthContext';
+import {useAuth} from '@/store/auth/AuthContext.ts';
 import {Spin} from 'antd';
 
 interface AuthGuardProps {
@@ -19,7 +19,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({children}) => {
     if (!user) {
         return (
             <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh'}}>
-                <Spin size="large" tip="加载菜单与权限中..."/>
+                <Spin size="large" description="加载菜单与权限中..."/>
             </div>
         );
     }
