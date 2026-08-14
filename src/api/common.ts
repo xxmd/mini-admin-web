@@ -16,10 +16,6 @@ export interface Sort {
     direction: 'asc' | 'desc';
 }
 
-export interface SearchParam {
-    keyword?: string | null;
-}
-
 export interface PagedModel<T> {
     content: T[];
     page: {

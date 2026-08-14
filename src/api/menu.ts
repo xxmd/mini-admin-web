@@ -1,5 +1,6 @@
 import request from '@/utils/request';
-import type {BaseEntity, PagedModel} from "@/api/common.ts";
+import type {BaseEntity} from "@/api/common.ts";
+import {createCrudApi} from "@/api/crud.ts";
 
 export enum MenuType {
     CATEGORY = 'CATEGORY',
@@ -21,7 +22,7 @@ export interface Menu extends BaseEntity {
 }
 
 export interface MenuForm {
-    id: number | null;
+    id?: number;
     parentId: number | null;
     type: MenuType;
     title: string;
@@ -32,24 +33,15 @@ export interface MenuForm {
     hidden: boolean;
 }
 
-export interface MenuQueryParam {
+export interface MenuSearchForm {
     parentId?: number | null;
 }
 
+const crud = createCrudApi<Menu, MenuForm, MenuSearchForm>('/system/menu');
+
 export default {
-    create(data: MenuForm): Promise<void> {
-        return request.post('/system/menu/create', data);
-    },
-    read(data: MenuQueryParam): Promise<PagedModel<Menu>> {
-        return request.post('/system/menu/read', data);
-    },
-    update(data: MenuForm): Promise<Menu[]> {
-        return request.post('/system/menu/update', data);
-    },
-    delete(ids: number[]): Promise<void> {
-        return request.post('/system/menu/delete', ids);
-    },
+    ...crud,
     findAll(): Promise<Menu[]> {
         return request.get('/system/menu/findAll');
     },
-};
+}

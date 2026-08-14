@@ -12,8 +12,8 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({menus}) => {
     const navigate = useNavigate();
     const location = useLocation();
-    const selectedKeys = useMemo(() => location.pathname.split("/"), [location.pathname]);
-    const [openKeys, setOpenKeys] = useState<string[]>(() => location.pathname.split("/"));
+    const selectedKeys = useMemo(() => location.pathname.split("/").filter(Boolean), [location.pathname]);
+    const [openKeys, setOpenKeys] = useState<string[]>(() => location.pathname.split("/").filter(Boolean));
 
     return (
         <Sider>

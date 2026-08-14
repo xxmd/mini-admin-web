@@ -1,8 +1,9 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {Button, Form, Input, InputNumber, message, Modal, Popconfirm, Radio, Space, Table, TreeSelect} from 'antd';
-import {DeleteOutlined, EditOutlined, PlusOutlined} from '@ant-design/icons';
+import {DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined} from '@ant-design/icons';
 import menuApi, {type Menu, type MenuForm, MenuType} from '@/api/menu'
 import enumApi, {EnumName, type EnumOption} from '@/api/enum'
+import {Permission} from '@/components/Permission';
 
 interface MenuOption {
     label: string;
@@ -141,7 +142,7 @@ const MenuManagement: React.FC = () => {
             key: 'title',
         },
         {
-            title: '类型',
+            title: '菜单类型',
             dataIndex: 'type',
             key: 'type',
             render: (type: string) => typeLabelMap(type),
@@ -171,14 +172,18 @@ const MenuManagement: React.FC = () => {
             key: 'action',
             render: (_: unknown, menu: Menu) => (
                 <Space>
-                    <Button type="link" size="small" icon={<EditOutlined/>} onClick={() => handleEdit(menu)}>
-                        编辑
-                    </Button>
-                    <Popconfirm title="确认删除该菜单？" onConfirm={() => handleDelete([menu.id])}>
-                        <Button type="link" size="small" danger icon={<DeleteOutlined/>}
-                                loading={deletingIds.includes(menu.id)}>
-                            删除
+                    <Permission permission="system:menu:update">
+                        <Button type="link" size="small" icon={<EditOutlined/>} onClick={() => handleEdit(menu)}>
+                            编辑
                         </Button>
+                    </Permission>
+                    <Popconfirm title="确认删除该菜单？" onConfirm={() => handleDelete([menu.id])}>
+                        <Permission permission="system:menu:delete">
+                            <Button type="link" size="small" danger icon={<DeleteOutlined/>}
+                                    loading={deletingIds.includes(menu.id)}>
+                                删除
+                            </Button>
+                        </Permission>
                     </Popconfirm>
                 </Space>
             ),
@@ -186,12 +191,16 @@ const MenuManagement: React.FC = () => {
     ];
 
     return (
-        <>
-            <div style={{marginBottom: 10}}>
-                <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>
-                    新增
-                </Button>
+        <div style={{display: 'flex', flexDirection: 'column', gap: 16}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                <Permission permission="system:menu:create">
+                    <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>
+                        新增
+                    </Button>
+                </Permission>
+                <Button icon={<ReloadOutlined/>} onClick={refreshTableData}/>
             </div>
+
             <Table
                 rowKey="id"
                 loading={loading}
@@ -199,6 +208,7 @@ const MenuManagement: React.FC = () => {
                 dataSource={data}
                 pagination={false}
             />
+
             <Modal
                 open={modalOpen}
                 onOk={handleSubmit}
@@ -207,7 +217,7 @@ const MenuManagement: React.FC = () => {
                 destroyOnHidden
             >
                 <Form form={form} layout="horizontal" labelAlign="left" labelCol={{span: 4}} wrapperCol={{span: 18}}
-                      style={{marginTop: 16}}>
+                      style={{marginTop: 16}} autoComplete="off">
                     <Form.Item name="id" hidden>
                         <Input/>
                     </Form.Item>
@@ -257,7 +267,7 @@ const MenuManagement: React.FC = () => {
                     </Form.Item>
                 </Form>
             </Modal>
-        </>
+        </div>
     );
 };
 

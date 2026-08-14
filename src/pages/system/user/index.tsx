@@ -1,8 +1,11 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {Button, Form, Input, message, Modal, Popconfirm, Radio, Select, Space, Table, Tag,} from 'antd';
+import type {SorterResult, TablePaginationConfig} from 'antd/es/table/interface';
 import {DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SearchOutlined} from '@ant-design/icons';
 import userApi, {type User, type UserForm, type UserSearchForm} from '@/api/user';
-import roleApi, {type RoleOption} from '@/api/role';
+import roleApi, {type SimpleRole} from '@/api/role';
+import type {Sort} from '@/api/common';
+import {Permission} from '@/components/Permission';
 
 const UserManagement: React.FC = () => {
     const [loading, setLoading] = useState(true);
@@ -10,51 +13,44 @@ const UserManagement: React.FC = () => {
     const [pagination, setPagination] = useState({current: 1, pageSize: 10, total: 0});
     const [modalOpen, setModalOpen] = useState(false);
     const [confirmLoading, setConfirmLoading] = useState(false);
-    const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
+    const [roles, setRoles] = useState<SimpleRole[]>([]);
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
     const [deletingIds, setDeletingIds] = useState<number[]>([]);
+    const [sorts, setSorts] = useState<Sort[]>([{property: 'createdDate', direction: 'desc'}]);
     const [searchForm] = Form.useForm<UserSearchForm>();
     const [userForm] = Form.useForm<UserForm>();
 
-    const roleSelectOptions = useMemo(
-        () => roleOptions.map(role => ({label: role.label, value: role.id})),
-        [roleOptions],
+    const roleOptions = useMemo(
+        () => roles.map(role => ({label: role.label, value: role.id})),
+        [roles],
     );
 
     function requestRoles() {
         roleApi.findAll().then(roles => {
-            setRoleOptions(roles);
+            setRoles(roles);
         }).catch(error => {
             void message.error('请求角色数据失败: ' + error);
         });
     }
 
-    function requestTableData(page = 1, pageSize = 10) {
-        const searchValues = searchForm.getFieldsValue();
-        const params: UserSearchForm = {
-            username: searchValues.username || null,
-            nickname: searchValues.nickname || null,
-            roleId: searchValues.roleId ?? null,
-            enabled: searchValues.enabled ?? null,
-        };
-        userApi.read(params, {page: page - 1, size: pageSize}, {
-            property: 'createdDate',
-            direction: 'desc'
-        }).then(pagedData => {
+    const requestTableData = useCallback((page = 1, pageSize = 10, currentSorts?: Sort[]) => {
+        userApi.read(searchForm.getFieldsValue(), {
+            page: page,
+            size: pageSize
+        }, currentSorts ?? sorts).then(pagedData => {
             setData(pagedData.content);
             setPagination({
                 current: pagedData.page.number + 1,
                 pageSize: pagedData.page.size,
                 total: pagedData.page.totalElements,
             });
-        }).catch(error => {
-            void message.error('请求用户数据失败: ' + error);
         }).finally(() => {
             setLoading(false);
         });
-    }
+    }, [searchForm, sorts]);
 
     function refreshTableData() {
+        setLoading(true);
         requestTableData(1, pagination.pageSize);
     }
 
@@ -74,34 +70,26 @@ const UserManagement: React.FC = () => {
         setModalOpen(true);
     }
 
-    function handleEdit(user: User) {
+    function handleUpdate(user: User) {
         userForm.resetFields();
         userForm.setFieldsValue({
-            id: user.id,
-            username: user.username,
-            nickname: user.nickname,
-            enabled: user.enabled,
+            ...user,
             roleIdSet: user.roleSet.map(role => role.id),
         });
         setModalOpen(true);
     }
 
-    function handleDelete(ids: number[]) {
-        setDeletingIds(ids);
-        userApi.delete(ids).then(() => {
-            void message.success('删除成功');
-            if (ids.some(id => selectedRowKeys.includes(id))) {
-                setSelectedRowKeys(prev => prev.filter(key => !ids.includes(key as number)));
-            }
+    async function handleDelete(ids: number[]) {
+        try {
+            setDeletingIds(ids);
+            await userApi.delete(ids);
             refreshTableData();
-        }).catch(error => {
-            void message.error('删除失败: ' + error);
-        }).finally(() => {
+        } finally {
             setDeletingIds([]);
-        });
+        }
     }
 
-    const handleSubmit = async () => {
+    async function handleSubmit() {
         try {
             const values = await userForm.validateFields();
             setConfirmLoading(true);
@@ -117,12 +105,26 @@ const UserManagement: React.FC = () => {
             }
             setModalOpen(false);
             refreshTableData();
-        } catch {
-            void message.error('表单提交失败');
         } finally {
             setConfirmLoading(false);
         }
-    };
+    }
+
+    function handleTableChange(_pagination: TablePaginationConfig, _filters: Record<string, unknown>, sorter: SorterResult<User> | SorterResult<User>[]) {
+        const sorterList = Array.isArray(sorter) ? sorter : [sorter];
+        const newSorts: Sort[] = sorterList
+            .filter(s => s.order)
+            .map(s => ({
+                property: (s.columnKey as string) || (s.field as string),
+                direction: s.order === 'ascend' ? 'asc' : 'desc',
+            }));
+        if (newSorts.length === 0) {
+            newSorts.push({property: 'createdDate', direction: 'desc'});
+        }
+        setSorts(newSorts);
+        setLoading(true);
+        requestTableData(_pagination.current ?? 1, _pagination.pageSize ?? 10, newSorts);
+    }
 
     const columns = [
         {
@@ -155,27 +157,57 @@ const UserManagement: React.FC = () => {
             ),
         },
         {
+            title: '创建时间',
+            dataIndex: 'createdDate',
+            key: 'createdDate',
+            sorter: true,
+            render: (val: Date) => val ? new Date(val).toLocaleString() : '-',
+        },
+        {
+            title: '创建者',
+            dataIndex: 'createdBy',
+            key: 'createdBy',
+            render: (val: string) => val || '-',
+        },
+        {
+            title: '修改时间',
+            dataIndex: 'modifiedDate',
+            key: 'modifiedDate',
+            sorter: true,
+            render: (val: Date) => val ? new Date(val).toLocaleString() : '-',
+        },
+        {
+            title: '修改者',
+            dataIndex: 'modifiedBy',
+            key: 'modifiedBy',
+            render: (val: string) => val || '-',
+        },
+        {
             title: '操作',
             key: 'action',
             render: (_: unknown, user: User) => (
                 <Space>
-                    <Button type="link" size="small" icon={<EditOutlined/>} onClick={() => handleEdit(user)}>
-                        编辑
-                    </Button>
-                    <Popconfirm title="确认删除该用户？" onConfirm={() => handleDelete([user.id])}>
-                        <Button type="link" size="small" danger icon={<DeleteOutlined/>}
-                                loading={deletingIds.includes(user.id)}>
-                            删除
+                    <Permission permission="system:user:update">
+                        <Button type="link" size="small" icon={<EditOutlined/>} onClick={() => handleUpdate(user)}>
+                            编辑
                         </Button>
-                    </Popconfirm>
+                    </Permission>
+                    <Permission permission="system:user:delete">
+                        <Popconfirm title="确认删除该用户？" onConfirm={() => handleDelete([user.id])}>
+                            <Button type="link" size="small" danger icon={<DeleteOutlined/>}
+                                    loading={deletingIds.includes(user.id)}>
+                                删除
+                            </Button>
+                        </Popconfirm>
+                    </Permission>
                 </Space>
             ),
         },
     ];
 
     return (
-        <>
-            <Form form={searchForm} layout="inline" style={{marginBottom: 16}} autoComplete={'off'}>
+        <div style={{display: 'flex', flexDirection: 'column', gap: 16}}>
+            <Form form={searchForm} layout="inline" autoComplete={'off'}>
                 <Form.Item name="username" label="用户名">
                     <Input allowClear/>
                 </Form.Item>
@@ -185,7 +217,7 @@ const UserManagement: React.FC = () => {
                 <Form.Item name="roleId" label="角色">
                     <Select
                         allowClear
-                        options={roleSelectOptions}
+                        options={roleOptions}
                     />
                 </Form.Item>
                 <Form.Item name="enabled" label="状态">
@@ -210,41 +242,45 @@ const UserManagement: React.FC = () => {
                 </Form.Item>
             </Form>
 
-            <div style={{marginBottom: 10}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                 <Space>
-                    <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>
-                        新增
-                    </Button>
-                    <Popconfirm title={`确认删除选中的 ${selectedRowKeys.length} 个用户？`}
-                                onConfirm={() => handleDelete(selectedRowKeys as number[])}
-                                disabled={selectedRowKeys.length === 0}>
-                        <Button danger icon={<DeleteOutlined/>} disabled={selectedRowKeys.length === 0}>
-                            批量删除
+                    <Permission permission="system:user:create">
+                        <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>
+                            新增
                         </Button>
-                    </Popconfirm>
+                    </Permission>
+                    <Permission permission="system:user:delete">
+                        <Popconfirm title={`确认删除选中的 ${selectedRowKeys.length} 个用户？`}
+                                    onConfirm={() => handleDelete(selectedRowKeys as number[])}
+                                    disabled={selectedRowKeys.length === 0}>
+                            <Button danger icon={<DeleteOutlined/>} disabled={selectedRowKeys.length === 0}>
+                                删除
+                            </Button>
+                        </Popconfirm>
+                    </Permission>
                 </Space>
+                <Button icon={<ReloadOutlined/>} onClick={refreshTableData}/>
             </div>
 
-            <div >
-                <Table
-                    rowKey="id"
-                    loading={loading}
-                    columns={columns}
-                    dataSource={data}
-                    rowSelection={{
-                        selectedRowKeys,
-                        onChange: setSelectedRowKeys,
-                    }}
-                    pagination={{
-                        current: pagination.current,
-                        pageSize: pagination.pageSize,
-                        total: pagination.total,
-                        showSizeChanger: true,
-                        showTotal: total => `共 ${total} 条`,
-                        onChange: (page, pageSize) => requestTableData(page, pageSize),
-                    }}
-                />
-            </div>
+            <Table
+                rowKey="id"
+                loading={loading}
+                columns={columns}
+                dataSource={data}
+                rowSelection={{
+                    selectedRowKeys,
+                    onChange: setSelectedRowKeys,
+                }}
+                pagination={{
+                    current: pagination.current,
+                    pageSize: pagination.pageSize,
+                    total: pagination.total,
+                    showSizeChanger: true,
+                    showTotal: total => `共 ${total} 条`,
+                    onChange: (page, pageSize) => requestTableData(page, pageSize),
+                }}
+                onChange={handleTableChange}
+            />
 
             <Modal
                 open={modalOpen}
@@ -254,11 +290,22 @@ const UserManagement: React.FC = () => {
                 destroyOnHidden
             >
                 <Form form={userForm} layout="horizontal" labelAlign="left" labelCol={{span: 4}} wrapperCol={{span: 18}}
-                      style={{marginTop: 16}}>
+                      style={{marginTop: 16}} autoComplete="off">
                     <Form.Item name="id" hidden>
                         <Input/>
                     </Form.Item>
-                    <Form.Item name="username" label="用户名" rules={[{required: true, message: '请输入用户名'}]}>
+                    <Form.Item name="username" label="用户名" rules={[
+                        {required: true, message: '请输入用户名'},
+                        {
+                            validator: async (_, value) => {
+                                if (!value) return;
+                                const existingUser = await userApi.findByUsername(value);
+                                if (existingUser && existingUser.id !== userForm.getFieldValue('id')) {
+                                    return Promise.reject('用户名已存在');
+                                }
+                            },
+                        },
+                    ]}>
                         <Input/>
                     </Form.Item>
                     <Form.Item name="nickname" label="昵称" rules={[{required: true, message: '请输入昵称'}]}>
@@ -274,13 +321,12 @@ const UserManagement: React.FC = () => {
                         <Select
                             mode="multiple"
                             allowClear
-                            options={roleSelectOptions}
+                            options={roleOptions}
                         />
                     </Form.Item>
-
                 </Form>
             </Modal>
-        </>
+        </div>
     );
 };
 

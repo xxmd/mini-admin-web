@@ -1,6 +1,7 @@
 import request from '@/utils/request';
 import type {Role} from "@/api/role.ts";
-import type {BaseEntity, Pageable, PagedModel, Sort} from "@/api/common.ts";
+import type {BaseEntity} from "@/api/common.ts";
+import {createCrudApi} from '@/api/crud';
 
 export interface User extends BaseEntity {
     username: string;
@@ -24,27 +25,35 @@ export interface UserSearchForm {
     enabled?: boolean | null;
 }
 
+export interface UserProfileForm {
+    username: string;
+    nickname: string;
+}
+
+export interface UserPasswordForm {
+    srcPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+}
+
+const BASE_PATH = '/system/user';
+
+
+const crud = createCrudApi<User, UserForm, UserSearchForm>(BASE_PATH);
+
+
 export default {
+    ...crud,
     get(): Promise<User> {
-        return request.get('/system/user');
+        return request.get(BASE_PATH);
     },
-    create(data: UserForm): Promise<void> {
-        return request.post('/system/user/create', data);
+    findByUsername(username: string): Promise<User | null> {
+        return request.get(`${BASE_PATH}/findByUsername/${username}`);
     },
-    read(params: UserSearchForm, pageable: Pageable, sort?: Sort): Promise<PagedModel<User>> {
-        return request.get('/system/user/read', {
-            params: {
-                ...params,
-                page: pageable.page,
-                size: pageable.size,
-                ...(sort ? {sort: `${sort.property},${sort.direction}`} : {}),
-            },
-        });
+    updateProfile(data: UserProfileForm): Promise<void> {
+        return request.post(`${BASE_PATH}/updateProfile`, data);
     },
-    update(data: UserForm): Promise<void> {
-        return request.post('/system/user/update', data);
-    },
-    delete(ids: number[]): Promise<void> {
-        return request.post('/system/user/delete', ids);
+    updatePassword(data: UserPasswordForm): Promise<void> {
+        return request.post(`${BASE_PATH}/updatePassword`, data);
     },
 }

@@ -1,6 +1,6 @@
 import request from '@/utils/request';
 
-export interface LoginParams {
+export interface LoginForm {
     username: string;
     password: string;
 }
@@ -12,7 +12,7 @@ export interface LoginResponse {
 }
 
 export default {
-    login(params: LoginParams): Promise<LoginResponse> {
-        return request.post('/auth/login', params);
-    }
+    login(data: LoginForm): Promise<LoginResponse> {
+        return request.post('/auth/login', data);
+    },
 };

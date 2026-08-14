@@ -1,36 +1,26 @@
 import React, {useState} from 'react';
-import {Form, Input, Button, Card, message} from 'antd';
+import {App, Form, Input, Button, Card} from 'antd';
 import {UserOutlined, LockOutlined} from '@ant-design/icons';
-import {useNavigate, useLocation} from 'react-router-dom';
-import authApi, {type LoginResponse} from '@/api/auth';
+import {useSearchParams} from 'react-router-dom';
+import authApi, {type LoginForm} from '@/api/auth';
 import {useAuth} from '../store/auth/AuthContext';
-
-// 定义表单字段类型
-interface LoginFormField {
-    username?: string;
-    password?: string;
-}
 
 const Login: React.FC = () => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
-    const navigate = useNavigate();
-    const location = useLocation();
+    const [searchParams] = useSearchParams();
     const {login} = useAuth();
+    const {message} = App.useApp();
 
-    const redirectUrl = (location.state as { from?: string })?.from || '/dashboard';
+    const redirectUrl = searchParams.get('redirect') || '/dashboard';
 
-    const onFinish = async (values: LoginFormField) => {
+    const onFinish = async (values: LoginForm) => {
         setLoading(true);
         try {
-            const res: LoginResponse = await authApi.login({
-                username: values.username!,
-                password: values.password!,
-            });
+            const res = await authApi.login(values);
             if (res.success) {
                 message.success('登录成功！');
-                await login(res.data?.token as string);
-                navigate(redirectUrl, {replace: true});
+                await login(res.data?.token as string, redirectUrl);
             } else {
                 message.error(res.message || '登录失败，请稍后重试');
             }
@@ -71,10 +61,12 @@ const Login: React.FC = () => {
                     width: 380,
                     boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                 }}
-                headStyle={{
-                    textAlign: 'center',
-                    fontSize: '20px',
-                    fontWeight: 'bold',
+                styles={{
+                    header: {
+                        textAlign: 'center',
+                        fontSize: '20px',
+                        fontWeight: 'bold',
+                    },
                 }}
             >
                 <Form

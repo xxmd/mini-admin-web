@@ -1,9 +1,12 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {Button, Form, Input, message, Modal, Popconfirm, Space, Table, Tree} from 'antd';
-import {DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SearchOutlined} from '@ant-design/icons';
+import type {SorterResult, TablePaginationConfig} from 'antd/es/table/interface';
 import type {DataNode} from 'antd/es/tree';
-import roleApi, {type Role, type RoleForm, type RoleQueryParam} from '@/api/role';
+import {DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SearchOutlined} from '@ant-design/icons';
+import roleApi, {type Role, type RoleForm, type RoleSearchForm} from '@/api/role';
 import menuApi, {type Menu} from '@/api/menu';
+import type {Sort} from '@/api/common';
+import {Permission} from '@/components/Permission';
 
 const RoleManagement: React.FC = () => {
     const [loading, setLoading] = useState(true);
@@ -11,7 +14,8 @@ const RoleManagement: React.FC = () => {
     const [pagination, setPagination] = useState({current: 1, pageSize: 10, total: 0});
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
     const [deletingIds, setDeletingIds] = useState<number[]>([]);
-    const [searchForm] = Form.useForm<RoleQueryParam>();
+    const [sorts, setSorts] = useState<Sort[]>([{property: 'createdDate', direction: 'desc'}]);
+    const [searchForm] = Form.useForm<RoleSearchForm>();
     const [modalOpen, setModalOpen] = useState(false);
     const [modalConfirmLoading, setModalConfirmLoading] = useState(false);
     const [modalForm] = Form.useForm<RoleForm>();
@@ -23,7 +27,7 @@ const RoleManagement: React.FC = () => {
             return menus
                 .map(menu => ({
                     title: menu.title,
-                    key: String(menu.id),
+                    key: menu.id,
                     children: menu.children?.length ? convert(menu.children) : undefined,
                 }));
         }
@@ -39,16 +43,12 @@ const RoleManagement: React.FC = () => {
         });
     }
 
-    function requestTableData(page = 1, pageSize = 10) {
+    const requestTableData = useCallback((page = 1, pageSize = 10, currentSorts?: Sort[]) => {
         const searchValues = searchForm.getFieldsValue();
-        const params: RoleQueryParam = {
+        const params: RoleSearchForm = {
             label: searchValues.label || null,
         };
-        setLoading(true);
-        roleApi.read(params, {page: page - 1, size: pageSize}, {
-            property: 'createdDate',
-            direction: 'desc',
-        }).then(pagedData => {
+        roleApi.read(params, {page: page - 1, size: pageSize}, currentSorts ?? sorts).then(pagedData => {
             setData(pagedData.content);
             setPagination({
                 current: pagedData.page.number + 1,
@@ -60,9 +60,10 @@ const RoleManagement: React.FC = () => {
         }).finally(() => {
             setLoading(false);
         });
-    }
+    }, [searchForm, sorts]);
 
     function refreshTableData() {
+        setLoading(true);
         requestTableData(1, pagination.pageSize);
     }
 
@@ -91,7 +92,7 @@ const RoleManagement: React.FC = () => {
             label: role.label,
             value: role.value,
         });
-        setCheckedMenuKeys(menuIds.map(id => String(id)));
+        setCheckedMenuKeys(menuIds);
         setModalOpen(true);
     }
 
@@ -101,7 +102,7 @@ const RoleManagement: React.FC = () => {
             setModalConfirmLoading(true);
             const formData: RoleForm = {
                 ...values,
-                menuIdSet: checkedMenuKeys.map(key => Number(key)),
+                menuIdSet: checkedMenuKeys as number[],
             };
             if (formData.id) {
                 await roleApi.update(formData);
@@ -134,6 +135,22 @@ const RoleManagement: React.FC = () => {
         });
     }
 
+    function handleTableChange(_pagination: TablePaginationConfig, _filters: Record<string, unknown>, sorter: SorterResult<Role> | SorterResult<Role>[]) {
+        const sorterList = Array.isArray(sorter) ? sorter : [sorter];
+        const newSorts: Sort[] = sorterList
+            .filter(s => s.order)
+            .map(s => ({
+                property: (s.columnKey as string) || (s.field as string),
+                direction: s.order === 'ascend' ? 'asc' : 'desc',
+            }));
+        if (newSorts.length === 0) {
+            newSorts.push({property: 'createdDate', direction: 'desc'});
+        }
+        setSorts(newSorts);
+        setLoading(true);
+        requestTableData(_pagination.current ?? 1, _pagination.pageSize ?? 10, newSorts);
+    }
+
     const columns = [
         {
             title: '角色名称',
@@ -146,6 +163,32 @@ const RoleManagement: React.FC = () => {
             key: 'value',
         },
         {
+            title: '创建时间',
+            dataIndex: 'createdDate',
+            key: 'createdDate',
+            sorter: true,
+            render: (val: Date) => val ? new Date(val).toLocaleString() : '-',
+        },
+        {
+            title: '创建者',
+            dataIndex: 'createdBy',
+            key: 'createdBy',
+            render: (val: string) => val || '-',
+        },
+        {
+            title: '修改时间',
+            dataIndex: 'modifiedDate',
+            key: 'modifiedDate',
+            sorter: true,
+            render: (val: Date) => val ? new Date(val).toLocaleString() : '-',
+        },
+        {
+            title: '修改者',
+            dataIndex: 'modifiedBy',
+            key: 'modifiedBy',
+            render: (val: string) => val || '-',
+        },
+        {
             title: '操作',
             key: 'action',
             render: (_: unknown, role: Role) => (
@@ -154,10 +197,12 @@ const RoleManagement: React.FC = () => {
                         编辑
                     </Button>
                     <Popconfirm title="确认删除该角色？" onConfirm={() => handleDelete([role.id])}>
-                        <Button type="link" size="small" danger icon={<DeleteOutlined/>}
-                                loading={deletingIds.includes(role.id)}>
-                            删除
-                        </Button>
+                        <Permission permission="system:role:delete">
+                            <Button type="link" size="small" danger icon={<DeleteOutlined/>}
+                                    loading={deletingIds.includes(role.id)}>
+                                删除
+                            </Button>
+                        </Permission>
                     </Popconfirm>
                 </Space>
             ),
@@ -165,8 +210,8 @@ const RoleManagement: React.FC = () => {
     ];
 
     return (
-        <>
-            <Form form={searchForm} layout="inline" style={{marginBottom: 16}}>
+        <div style={{display: 'flex', flexDirection: 'column', gap: 16}}>
+            <Form form={searchForm} layout="inline" autoComplete="off">
                 <Form.Item name="label" label="角色名称">
                     <Input allowClear/>
                 </Form.Item>
@@ -182,43 +227,48 @@ const RoleManagement: React.FC = () => {
                 </Form.Item>
             </Form>
 
-            <div style={{marginBottom: 10}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                 <Space>
-                    <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreateOpen}>
-                        新增
-                    </Button>
-                    <Popconfirm title={`确认删除选中的 ${selectedRowKeys.length} 个角色？`}
-                                onConfirm={() => handleDelete(selectedRowKeys as number[])}
-                                disabled={selectedRowKeys.length === 0}>
-                        <Button danger icon={<DeleteOutlined/>} disabled={selectedRowKeys.length === 0}>
-                            批量删除
+                    <Permission permission="system:role:create">
+                        <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreateOpen}>
+                            新增
                         </Button>
-                    </Popconfirm>
+                    </Permission>
+                    <Permission permission="system:role:delete">
+                        <Popconfirm title={`确认删除选中的 ${selectedRowKeys.length} 个角色？`}
+                                    onConfirm={() => handleDelete(selectedRowKeys as number[])}
+                                    disabled={selectedRowKeys.length === 0}>
+                            <Button danger icon={<DeleteOutlined/>} disabled={selectedRowKeys.length === 0}>
+                                删除
+                            </Button>
+                        </Popconfirm>
+                    </Permission>
                 </Space>
+                <Button icon={<ReloadOutlined/>} onClick={refreshTableData}/>
             </div>
 
-            <div style={{border: '1px solid #f0f0f0', borderRadius: 8, overflow: 'hidden'}}>
-                <Table
-                    rowKey="id"
-                    loading={loading}
-                    columns={columns}
-                    dataSource={data}
-                    rowSelection={{
-                        selectedRowKeys,
-                        onChange: setSelectedRowKeys,
-                    }}
-                    pagination={{
-                        current: pagination.current,
-                        pageSize: pagination.pageSize,
-                        total: pagination.total,
-                        showSizeChanger: true,
-                        showTotal: total => `共 ${total} 条`,
-                        onChange: (page, pageSize) => requestTableData(page, pageSize),
-                    }}
-                />
-            </div>
+            <Table
+                rowKey="id"
+                loading={loading}
+                columns={columns}
+                dataSource={data}
+                rowSelection={{
+                    selectedRowKeys,
+                    onChange: setSelectedRowKeys,
+                }}
+                pagination={{
+                    current: pagination.current,
+                    pageSize: pagination.pageSize,
+                    total: pagination.total,
+                    showSizeChanger: true,
+                    showTotal: total => `共 ${total} 条`,
+                    onChange: (page, pageSize) => requestTableData(page, pageSize),
+                }}
+                onChange={handleTableChange}
+            />
 
             <Modal
+                forceRender
                 open={modalOpen}
                 onOk={handleModalSubmit}
                 onCancel={() => setModalOpen(false)}
@@ -228,7 +278,7 @@ const RoleManagement: React.FC = () => {
             >
                 <Form form={modalForm} layout="horizontal" labelAlign="left" labelCol={{span: 5}}
                       wrapperCol={{span: 17}}
-                      style={{marginTop: 16}}>
+                      style={{marginTop: 16}} autoComplete="off">
                     <Form.Item name="id" hidden>
                         <Input/>
                     </Form.Item>
@@ -244,8 +294,8 @@ const RoleManagement: React.FC = () => {
                             checkable
                             checkedKeys={checkedMenuKeys}
                             onCheck={(keys) => {
-                                const ck = Array.isArray(keys) ? keys : keys.checked;
-                                setCheckedMenuKeys(ck);
+                                const checked = Array.isArray(keys) ? keys : keys.checked;
+                                setCheckedMenuKeys(checked);
                             }}
                             treeData={menuTreeNodes}
                             defaultExpandAll
@@ -253,7 +303,7 @@ const RoleManagement: React.FC = () => {
                     </Form.Item>
                 </Form>
             </Modal>
-        </>
+        </div>
     );
 };
 

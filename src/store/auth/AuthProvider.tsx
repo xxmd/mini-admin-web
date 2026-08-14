@@ -42,6 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
         user: null,
         menus: [],
         initialized: false,
+        redirectUrl: null,
     });
 
     useEffect(() => {
@@ -81,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
         setState(prev => ({...prev, token}));
     }, []);
 
-    const login = useCallback(async (token: string) => {
+    const login = useCallback(async (token: string, redirectUrl?: string) => {
         setToken(token);
         try {
             const user = await userApi.get();
@@ -90,11 +91,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
                 user,
                 menus: getNavMenuFromUser(user),
                 initialized: true,
+                redirectUrl: redirectUrl ?? null,
             });
         } catch (error) {
             console.error('Login fetch user info failed:', error);
         }
     }, [setToken]);
+
+    const clearRedirect = useCallback(() => {
+        setState(prev => ({...prev, redirectUrl: null}));
+    }, []);
 
     const logout = useCallback(() => {
         setToken(null);
@@ -103,14 +109,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
             user: null,
             menus: [],
             initialized: true,
+            redirectUrl: null,
         });
     }, [setToken]);
+
+    const refreshUser = useCallback(async () => {
+        try {
+            const user = await userApi.get();
+            setState(prev => ({
+                ...prev,
+                user,
+                menus: getNavMenuFromUser(user),
+            }));
+        } catch (error) {
+            console.error('Failed to refresh user info:', error);
+        }
+    }, []);
 
     const value: AuthContextValue = {
         ...state,
         setToken,
         login,
         logout,
+        clearRedirect,
+        refreshUser,
     };
 
     return (

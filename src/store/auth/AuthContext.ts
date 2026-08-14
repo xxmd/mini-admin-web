@@ -7,12 +7,15 @@ export interface AuthState {
     user: User | null;
     menus: Menu[];
     initialized: boolean;
+    redirectUrl: string | null;
 }
 
 export interface AuthContextValue extends AuthState {
     setToken: (token: string | null) => void;
-    login: (token: string) => Promise<void>;
+    login: (token: string, redirectUrl?: string) => Promise<void>;
     logout: () => void;
+    clearRedirect: () => void;
+    refreshUser: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
