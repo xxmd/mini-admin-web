@@ -112,6 +112,7 @@ export const Header: React.FC = () => {
                 onCancel={() => setProfileModalOpen(false)}
                 confirmLoading={confirmLoading}
                 destroyOnHidden
+                maskClosable={false}
             >
                 <Form form={profileForm} layout="horizontal" labelAlign="left" labelCol={{span: 4}}
                       wrapperCol={{span: 18}}
@@ -143,6 +144,7 @@ export const Header: React.FC = () => {
                 onCancel={() => setPasswordModalOpen(false)}
                 confirmLoading={confirmLoading}
                 destroyOnHidden
+                maskClosable={false}
             >
                 <Form form={passwordForm} layout="horizontal" labelAlign="left" labelCol={{span: 6}}
                       wrapperCol={{span: 16}}

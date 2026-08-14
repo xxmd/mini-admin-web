@@ -4,29 +4,31 @@ import {usePagedTable} from '@/hooks/usePagedTable';
 import {useCrudModal} from '@/hooks/useCrudModal';
 import {useBatchDelete} from '@/hooks/useBatchDelete';
 
-interface CrudPageOptions<T, F extends {id?: number}, S> {
+interface CrudApi<T, F, S> {
     read: (search: S, pageable: Pageable, sorts?: Sort[]) => Promise<PagedModel<T>>;
     create: (data: F) => Promise<void>;
     update: (data: F) => Promise<void>;
-    deleteFn: (ids: number[]) => Promise<void>;
+    delete: (ids: number[]) => Promise<void>;
+}
+
+interface CrudPageOptions<T, F extends {id?: number}, S> {
+    api: CrudApi<T, F, S>;
     searchForm: FormInstance<S>;
     transform?: (values: F) => F;
 }
 
-export function useCrudPage<T, F extends {id?: number}, S>(options: CrudPageOptions<T, F, S>) {
-    const {read, create, update, deleteFn, searchForm, transform} = options;
-
-    const table = usePagedTable({read, searchForm});
+export function useCrudPage<T, F extends {id?: number}, S>({api, searchForm, transform}: CrudPageOptions<T, F, S>) {
+    const table = usePagedTable({read: api.read, searchForm});
 
     const modal = useCrudModal({
-        create,
-        update,
+        create: api.create,
+        update: api.update,
         transform,
         onSuccess: table.refreshTableData,
     });
 
     const batchDelete = useBatchDelete({
-        deleteFn,
+        deleteFn: api.delete,
         onSuccess: ids => {
             table.setSelectedRowKeys(prev => prev.filter(key => !ids.includes(key as number)));
             table.refreshTableData();

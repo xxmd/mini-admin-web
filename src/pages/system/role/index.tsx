@@ -1,9 +1,8 @@
-import {type FC, type Key, useCallback, useEffect, useMemo, useState} from 'react';
+import {type FC, type Key, useEffect, useMemo, useState} from 'react';
 import {Form, Input, message, Table, Tree} from 'antd';
 import type {DataNode} from 'antd/es/tree';
 import roleApi, {type Role, type RoleForm, type RoleSearchForm} from '@/api/system/role';
 import menuApi, {type Menu} from '@/api/system/menu';
-import type {Pageable, Sort} from '@/api/common';
 import {SearchForm} from '@/components/crud/SearchForm';
 import {Toolbar} from '@/components/crud/Toolbar';
 import {CrudModal} from '@/components/crud/CrudModal';
@@ -15,10 +14,6 @@ import {auditColumns} from '@/components/crud/AuditColumns';
 const RoleManagement: FC = () => {
     // 搜索
     const [searchForm] = Form.useForm<RoleSearchForm>();
-
-    // 表格
-    const read = useCallback((search: RoleSearchForm, pageable: Pageable, sorts?: Sort[]) =>
-        roleApi.read({label: search.label ?? null}, pageable, sorts), []);
 
     // 表单（菜单树）
     const [menuTreeData, setMenuTreeData] = useState<Menu[]>([]);
@@ -57,10 +52,7 @@ const RoleManagement: FC = () => {
         close,
         submit,
     } = useCrudPage<Role, RoleForm, RoleSearchForm>({
-        read,
-        create: roleApi.create,
-        update: roleApi.update,
-        deleteFn: roleApi.delete,
+        api: roleApi,
         searchForm,
         transform: values => ({...values, menuIdSet: checkedMenuKeys as number[]}),
     });

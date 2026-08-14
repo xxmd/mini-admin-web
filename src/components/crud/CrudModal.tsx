@@ -23,6 +23,7 @@ export function CrudModal<F>({open, confirmLoading, onOk, onCancel, form, title,
             onCancel={onCancel}
             confirmLoading={confirmLoading}
             destroyOnHidden
+            maskClosable={false}
             title={title}
             forceRender={forceRender}
         >

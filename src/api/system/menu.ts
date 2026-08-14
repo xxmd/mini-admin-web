@@ -37,11 +37,13 @@ export interface MenuSearchForm {
     parentId?: number | null;
 }
 
-const crud = createCrudApi<Menu, MenuForm, MenuSearchForm>('/system/menu');
+const BASE_PATH = '/system/menu';
+
+const crud = createCrudApi<Menu, MenuForm, MenuSearchForm>(BASE_PATH);
 
 export default {
     ...crud,
     findAll(): Promise<Menu[]> {
-        return request.get('/system/menu/findAll');
+        return request.get(`${BASE_PATH}/findAll`);
     },
 }

@@ -35,10 +35,7 @@ const UserManagement: FC = () => {
         close,
         submit,
     } = useCrudPage<User, UserForm, UserSearchForm>({
-        read: userApi.read,
-        create: userApi.create,
-        update: userApi.update,
-        deleteFn: userApi.delete,
+        api: userApi,
         searchForm,
     });
 

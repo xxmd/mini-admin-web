@@ -25,11 +25,13 @@ export interface SimpleRole {
     label: string;
 }
 
-const crud = createCrudApi<Role, RoleForm, RoleSearchForm>('/system/role');
+const BASE_PATH = '/system/role';
+
+const crud = createCrudApi<Role, RoleForm, RoleSearchForm>(BASE_PATH);
 
 export default {
     ...crud,
     findAll(): Promise<SimpleRole[]> {
-        return request.get('/system/role/findAll');
+        return request.get(`${BASE_PATH}/findAll`);
     },
 }
