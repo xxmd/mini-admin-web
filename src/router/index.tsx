@@ -1,7 +1,7 @@
 import {createBrowserRouter, Navigate, redirect} from 'react-router-dom';
 import type {RouteObject} from 'react-router-dom';
 import {Layout} from '@/layout';
-import {AuthGuard} from '@/components/AuthGuard';
+import {AuthGuard} from '@/components/auth/AuthGuard';
 import Login from '@/pages/Login';
 import Welcome from '@/pages/Welcome';
 import NotFound from '@/pages/NotFound';

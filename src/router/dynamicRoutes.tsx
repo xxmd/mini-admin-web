@@ -16,16 +16,20 @@ Object.entries(pageModules).forEach(([path, loader]) => {
     const match = path.match(/\/pages\/(.+)\.tsx$/);
     if (match) {
         loaderMap[match[1]] = loader;
-        componentMap[match[1]] = React.lazy(loader as () => Promise<{ default: React.FC }>);
+        componentMap[match[1]] = React.lazy(loader as () => Promise<{default: React.FC}>);
     }
 });
 
+export function preloadPage(component: string): void {
+    const loader = loaderMap[component];
+    if (loader) {
+        void loader();
+    }
+}
+
 export function preloadPages(components: string[]): void {
     for (const component of components) {
-        const loader = loaderMap[component];
-        if (loader) {
-            void loader();
-        }
+        preloadPage(component);
     }
 }
 

@@ -1,9 +1,11 @@
 import {type FC, useCallback, useEffect, useMemo, useState} from 'react';
-import {Button, Form, Input, InputNumber, message, Modal, Popconfirm, Radio, Space, Table, TreeSelect} from 'antd';
-import {DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined} from '@ant-design/icons';
+import {Form, Input, InputNumber, message, Radio, Table, TreeSelect} from 'antd';
 import menuApi, {type Menu, type MenuForm, MenuType} from '@/api/system/menu'
 import enumApi, {EnumName, type EnumOption} from '@/api/enum'
-import {Permission} from '@/components/Permission';
+import {Toolbar} from '@/components/crud/Toolbar';
+import {CrudModal} from '@/components/crud/CrudModal';
+import {CrudLayout} from '@/components/crud/CrudLayout';
+import {createActionColumn} from '@/components/crud/ActionColumn';
 import {useCrudModal} from '@/hooks/useCrudModal';
 import {useBatchDelete} from '@/hooks/useBatchDelete';
 
@@ -155,39 +157,24 @@ const MenuManagement: FC = () => {
             dataIndex: 'sort',
             key: 'sort',
         },
-        {
-            title: '操作',
-            key: 'action',
-            render: (_: unknown, menu: Menu) => (
-                <Space>
-                    <Permission permission="system:menu:update">
-                        <Button type="link" size="small" icon={<EditOutlined/>} onClick={() => handleEdit(menu)}>
-                            编辑
-                        </Button>
-                    </Permission>
-                    <Popconfirm title="确认删除该菜单？" onConfirm={() => deleteByIds([menu.id])}>
-                        <Permission permission="system:menu:delete">
-                            <Button type="link" size="small" danger icon={<DeleteOutlined/>}
-                                    loading={deletingIds.includes(menu.id)}>
-                                删除
-                            </Button>
-                        </Permission>
-                    </Popconfirm>
-                </Space>
-            ),
-        },
+        createActionColumn<Menu>({
+            entityName: '菜单',
+            updatePermission: 'system:menu:update',
+            deletePermission: 'system:menu:delete',
+            onEdit: handleEdit,
+            onDelete: id => deleteByIds([id]),
+            deletingIds,
+        }),
     ];
 
     return (
-        <div style={{display: 'flex', flexDirection: 'column', gap: 16}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                <Permission permission="system:menu:create">
-                    <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>
-                        新增
-                    </Button>
-                </Permission>
-                <Button icon={<ReloadOutlined/>} onClick={refreshTableData}/>
-            </div>
+        <CrudLayout>
+            <Toolbar
+                createPermission="system:menu:create"
+                onCreate={handleCreate}
+                onRefresh={refreshTableData}
+                entityName="菜单"
+            />
 
             <Table
                 rowKey="id"
@@ -197,65 +184,56 @@ const MenuManagement: FC = () => {
                 pagination={false}
             />
 
-            <Modal
-                open={modalOpen}
-                onOk={submit}
-                onCancel={close}
-                confirmLoading={confirmLoading}
-                destroyOnHidden
-            >
-                <Form form={form} layout="horizontal" labelAlign="left" labelCol={{span: 4}} wrapperCol={{span: 18}}
-                      style={{marginTop: 16}} autoComplete="off">
-                    <Form.Item name="id" hidden>
+            <CrudModal open={modalOpen} confirmLoading={confirmLoading} onOk={submit} onCancel={close} form={form}>
+                <Form.Item name="id" hidden>
+                    <Input/>
+                </Form.Item>
+                <Form.Item name="parentId" label="上层目录">
+                    <TreeSelect
+                        treeData={treeMenuOptions}
+                        allowClear
+                        placeholder=""
+                        treeDefaultExpandAll
+                    />
+                </Form.Item>
+                <Form.Item name="type" label="菜单类型" rules={[{required: true}]}>
+                    <Radio.Group>
+                        {menuTypeOptions.map(opt => (
+                            <Radio key={opt.value} value={opt.value}>{opt.label}</Radio>
+                        ))}
+                    </Radio.Group>
+                </Form.Item>
+                <Form.Item name="title" label="菜单标题" rules={[{required: true, message: '请输入菜单标题'}]}>
+                    <Input/>
+                </Form.Item>
+                {requireInputPath && (
+                    <Form.Item name="path" label="路由路径" rules={[{required: true, message: '请输入路由路径'}]}>
                         <Input/>
                     </Form.Item>
-                    <Form.Item name="parentId" label="上层目录">
-                        <TreeSelect
-                            treeData={treeMenuOptions}
-                            allowClear
-                            placeholder=""
-                            treeDefaultExpandAll
-                        />
-                    </Form.Item>
-                    <Form.Item name="type" label="菜单类型" rules={[{required: true}]}>
-                        <Radio.Group>
-                            {menuTypeOptions.map(opt => (
-                                <Radio key={opt.value} value={opt.value}>{opt.label}</Radio>
-                            ))}
-                        </Radio.Group>
-                    </Form.Item>
-                    <Form.Item name="title" label="菜单标题" rules={[{required: true, message: '请输入菜单标题'}]}>
+                )}
+                {requireInputComponent && (
+                    <Form.Item name="component" label="组件路径"
+                               rules={[{required: true, message: '请输入组件路径'}]}>
                         <Input/>
                     </Form.Item>
-                    {requireInputPath && (
-                        <Form.Item name="path" label="路由路径" rules={[{required: true, message: '请输入路由路径'}]}>
-                            <Input/>
-                        </Form.Item>
-                    )}
-                    {requireInputComponent && (
-                        <Form.Item name="component" label="组件路径"
-                                   rules={[{required: true, message: '请输入组件路径'}]}>
-                            <Input/>
-                        </Form.Item>
-                    )}
-                    {requireInputPermission && (
-                        <Form.Item name="permission" label="权限标识"
-                                   rules={[{required: true, message: '请输入权限标识'}]}>
-                            <Input/>
-                        </Form.Item>
-                    )}
-                    <Form.Item name="sort" label="排序" initialValue={99}>
-                        <InputNumber mode="spinner" min={1} style={{width: '100%'}}/>
+                )}
+                {requireInputPermission && (
+                    <Form.Item name="permission" label="权限标识"
+                               rules={[{required: true, message: '请输入权限标识'}]}>
+                        <Input/>
                     </Form.Item>
-                    <Form.Item name="hidden" label="是否隐藏" initialValue={false}>
-                        <Radio.Group>
-                            <Radio value={false}>否</Radio>
-                            <Radio value={true}>是</Radio>
-                        </Radio.Group>
-                    </Form.Item>
-                </Form>
-            </Modal>
-        </div>
+                )}
+                <Form.Item name="sort" label="排序" initialValue={99}>
+                    <InputNumber mode="spinner" min={1} style={{width: '100%'}}/>
+                </Form.Item>
+                <Form.Item name="hidden" label="是否隐藏" initialValue={false}>
+                    <Radio.Group>
+                        <Radio value={false}>否</Radio>
+                        <Radio value={true}>是</Radio>
+                    </Radio.Group>
+                </Form.Item>
+            </CrudModal>
+        </CrudLayout>
     );
 };
 

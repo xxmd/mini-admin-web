@@ -1,19 +1,20 @@
 import {type FC, useEffect, useMemo, useState} from 'react';
-import {Button, Form, Input, message, Modal, Popconfirm, Radio, Select, Space, Table, Tag,} from 'antd';
-import {DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SearchOutlined} from '@ant-design/icons';
+import {Form, Input, message, Radio, Select, Table, Tag,} from 'antd';
 import userApi, {type User, type UserForm, type UserSearchForm} from '@/api/system/user';
 import roleApi, {type SimpleRole} from '@/api/system/role';
-import {Permission} from '@/components/Permission';
-import {usePagedTable} from '@/hooks/usePagedTable';
-import {useCrudModal} from '@/hooks/useCrudModal';
-import {useBatchDelete} from '@/hooks/useBatchDelete';
-import {auditColumns} from '@/components/AuditColumns';
+import {SearchForm} from '@/components/crud/SearchForm';
+import {Toolbar} from '@/components/crud/Toolbar';
+import {CrudModal} from '@/components/crud/CrudModal';
+import {CrudLayout} from '@/components/crud/CrudLayout';
+import {createActionColumn} from '@/components/crud/ActionColumn';
+import {useCrudPage} from '@/hooks/useCrudPage';
+import {auditColumns} from '@/components/crud/AuditColumns';
 
 const UserManagement: FC = () => {
     // 搜索
     const [searchForm] = Form.useForm<UserSearchForm>();
 
-    // 表格
+    // 表格 + 表单 + 删除
     const {
         loading,
         data,
@@ -24,19 +25,8 @@ const UserManagement: FC = () => {
         refreshTableData,
         reset,
         handleTableChange,
-    } = usePagedTable<User, UserSearchForm>({
-        read: userApi.read,
-        searchForm,
-    });
-
-    // 删除
-    const {deletingIds, deleteByIds} = useBatchDelete({
-        deleteFn: userApi.delete,
-        onSuccess: refreshTableData,
-    });
-
-    // 表单
-    const {
+        deletingIds,
+        deleteByIds,
         modalOpen,
         confirmLoading,
         form: userForm,
@@ -44,10 +34,12 @@ const UserManagement: FC = () => {
         openEdit,
         close,
         submit,
-    } = useCrudModal<UserForm>({
+    } = useCrudPage<User, UserForm, UserSearchForm>({
+        read: userApi.read,
         create: userApi.create,
         update: userApi.update,
-        onSuccess: refreshTableData,
+        deleteFn: userApi.delete,
+        searchForm,
     });
 
     // 通用
@@ -67,7 +59,6 @@ const UserManagement: FC = () => {
 
     useEffect(() => {
         requestRoles();
-        requestTableData();
     }, []);
 
     function handleCreate() {
@@ -112,32 +103,19 @@ const UserManagement: FC = () => {
             ),
         },
         ...auditColumns,
-        {
-            title: '操作',
-            key: 'action',
-            render: (_: unknown, user: User) => (
-                <Space>
-                    <Permission permission="system:user:update">
-                        <Button type="link" size="small" icon={<EditOutlined/>} onClick={() => handleUpdate(user)}>
-                            编辑
-                        </Button>
-                    </Permission>
-                    <Permission permission="system:user:delete">
-                        <Popconfirm title="确认删除该用户？" onConfirm={() => deleteByIds([user.id])}>
-                            <Button type="link" size="small" danger icon={<DeleteOutlined/>}
-                                    loading={deletingIds.includes(user.id)}>
-                                删除
-                            </Button>
-                        </Popconfirm>
-                    </Permission>
-                </Space>
-            ),
-        },
+        createActionColumn<User>({
+            entityName: '用户',
+            updatePermission: 'system:user:update',
+            deletePermission: 'system:user:delete',
+            onEdit: handleUpdate,
+            onDelete: id => deleteByIds([id]),
+            deletingIds,
+        }),
     ];
 
     return (
-        <div style={{display: 'flex', flexDirection: 'column', gap: 16}}>
-            <Form form={searchForm} layout="inline" autoComplete={'off'}>
+        <CrudLayout>
+            <SearchForm form={searchForm} onSearch={refreshTableData} onReset={reset}>
                 <Form.Item name="username" label="用户名">
                     <Input allowClear/>
                 </Form.Item>
@@ -160,37 +138,17 @@ const UserManagement: FC = () => {
                         ]}
                     />
                 </Form.Item>
-                <Form.Item>
-                    <Space>
-                        <Button type="primary" icon={<SearchOutlined/>} onClick={refreshTableData}>
-                            搜索
-                        </Button>
-                        <Button icon={<ReloadOutlined/>} onClick={reset}>
-                            重置
-                        </Button>
-                    </Space>
-                </Form.Item>
-            </Form>
+            </SearchForm>
 
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                <Space>
-                    <Permission permission="system:user:create">
-                        <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>
-                            新增
-                        </Button>
-                    </Permission>
-                    <Permission permission="system:user:delete">
-                        <Popconfirm title={`确认删除选中的 ${selectedRowKeys.length} 个用户？`}
-                                    onConfirm={() => deleteByIds(selectedRowKeys as number[])}
-                                    disabled={selectedRowKeys.length === 0}>
-                            <Button danger icon={<DeleteOutlined/>} disabled={selectedRowKeys.length === 0}>
-                                删除
-                            </Button>
-                        </Popconfirm>
-                    </Permission>
-                </Space>
-                <Button icon={<ReloadOutlined/>} onClick={refreshTableData}/>
-            </div>
+            <Toolbar
+                createPermission="system:user:create"
+                deletePermission="system:user:delete"
+                onCreate={handleCreate}
+                onRefresh={refreshTableData}
+                entityName="用户"
+                selectedCount={selectedRowKeys.length}
+                onBatchDelete={() => deleteByIds(selectedRowKeys as number[])}
+            />
 
             <Table
                 rowKey="id"
@@ -212,51 +170,42 @@ const UserManagement: FC = () => {
                 onChange={handleTableChange}
             />
 
-            <Modal
-                open={modalOpen}
-                onOk={submit}
-                onCancel={close}
-                confirmLoading={confirmLoading}
-                destroyOnHidden
-            >
-                <Form form={userForm} layout="horizontal" labelAlign="left" labelCol={{span: 4}} wrapperCol={{span: 18}}
-                      style={{marginTop: 16}} autoComplete="off">
-                    <Form.Item name="id" hidden>
-                        <Input/>
-                    </Form.Item>
-                    <Form.Item name="username" label="用户名" rules={[
-                        {required: true, message: '请输入用户名'},
-                        {
-                            validator: async (_, value) => {
-                                if (!value) return;
-                                const existingUser = await userApi.findByUsername(value);
-                                if (existingUser && existingUser.id !== userForm.getFieldValue('id')) {
-                                    return Promise.reject('用户名已存在');
-                                }
-                            },
+            <CrudModal open={modalOpen} confirmLoading={confirmLoading} onOk={submit} onCancel={close} form={userForm}>
+                <Form.Item name="id" hidden>
+                    <Input/>
+                </Form.Item>
+                <Form.Item name="username" label="用户名" rules={[
+                    {required: true, message: '请输入用户名'},
+                    {
+                        validator: async (_, value) => {
+                            if (!value) return;
+                            const existingUser = await userApi.findByUsername(value);
+                            if (existingUser && existingUser.id !== userForm.getFieldValue('id')) {
+                                return Promise.reject('用户名已存在');
+                            }
                         },
-                    ]}>
-                        <Input/>
-                    </Form.Item>
-                    <Form.Item name="nickname" label="昵称" rules={[{required: true, message: '请输入昵称'}]}>
-                        <Input/>
-                    </Form.Item>
-                    <Form.Item name="enabled" label="状态" initialValue={true}>
-                        <Radio.Group>
-                            <Radio value={true}>启用</Radio>
-                            <Radio value={false}>禁用</Radio>
-                        </Radio.Group>
-                    </Form.Item>
-                    <Form.Item name="roleIdSet" label="角色">
-                        <Select
-                            mode="multiple"
-                            allowClear
-                            options={roleOptions}
-                        />
-                    </Form.Item>
-                </Form>
-            </Modal>
-        </div>
+                    },
+                ]}>
+                    <Input/>
+                </Form.Item>
+                <Form.Item name="nickname" label="昵称" rules={[{required: true, message: '请输入昵称'}]}>
+                    <Input/>
+                </Form.Item>
+                <Form.Item name="enabled" label="状态" initialValue={true}>
+                    <Radio.Group>
+                        <Radio value={true}>启用</Radio>
+                        <Radio value={false}>禁用</Radio>
+                    </Radio.Group>
+                </Form.Item>
+                <Form.Item name="roleIdSet" label="角色">
+                    <Select
+                        mode="multiple"
+                        allowClear
+                        options={roleOptions}
+                    />
+                </Form.Item>
+            </CrudModal>
+        </CrudLayout>
     );
 };
 

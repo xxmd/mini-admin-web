@@ -10,12 +10,28 @@ import '@/layout/index.css'
 
 type MenuItem = Required<MenuProps>['items'][number];
 
+function collectComponents(menu: Menu): string[] {
+    const result: string[] = [];
+    if (menu.component) {
+        result.push(menu.component);
+    }
+    if (menu.children) {
+        for (const child of menu.children) {
+            result.push(...collectComponents(child));
+        }
+    }
+    return result;
+}
+
 function parseToMenuItem(menu: Menu): MenuItem {
+    const components = collectComponents(menu);
     return {
         key: menu.path,
-        label: menu.title,
-        children: menu.children?.map(child => parseToMenuItem(child))
-    }
+        label: components.length > 0
+            ? <span onMouseEnter={() => preloadPages(components)}>{menu.title}</span>
+            : menu.title,
+        children: menu.children?.map(child => parseToMenuItem(child)),
+    };
 }
 
 export const Layout: React.FC = () => {
@@ -23,17 +39,9 @@ export const Layout: React.FC = () => {
 
     useEffect(() => {
         const components: string[] = [];
-        function collect(ms: Menu[]) {
-            for (const m of ms) {
-                if (m.component) {
-                    components.push(m.component);
-                }
-                if (m.hasChildren && m.children) {
-                    collect(Array.from(m.children));
-                }
-            }
+        for (const menu of menus) {
+            components.push(...collectComponents(menu));
         }
-        collect(menus);
         preloadPages(components);
     }, [menus]);
 

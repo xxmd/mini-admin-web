@@ -50,7 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({menus}) => {
                 openKeys={openKeys}
                 onOpenChange={(keys) => setOpenKeys(keys as string[])}
                 items={menus}
-                onClick={({keyPath}) => navigate(keyPath.reverse().join("/"))}
+                onClick={({keyPath}) => navigate("/" + keyPath.reverse().join("/"))}
             />
         </Sider>
     );

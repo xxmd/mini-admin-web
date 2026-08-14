@@ -1,4 +1,4 @@
-import {useCallback, useState, type Key} from 'react';
+import {useCallback, useEffect, useState, type Key} from 'react';
 import type {FormInstance} from 'antd';
 import type {SorterResult, TablePaginationConfig} from 'antd/es/table/interface';
 import type {Pageable, PagedModel, Sort} from '@/api/common';
@@ -31,6 +31,10 @@ export function usePagedTable<T, S>({read, searchForm}: PagedTableOptions<T, S>)
                 setLoading(false);
             });
     }, [read, searchForm, sorts]);
+
+    useEffect(() => {
+        requestTableData();
+    }, []);
 
     const refreshTableData = useCallback(() => {
         setLoading(true);
