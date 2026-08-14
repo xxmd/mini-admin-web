@@ -1,6 +1,6 @@
 import React from 'react';
 import type {RouteObject} from 'react-router-dom';
-import {type Menu} from "@/api/menu.ts";
+import {type Menu} from "../api/system/menu.ts";
 
 const pageModules = import.meta.glob('@/pages/**/*.tsx');
 

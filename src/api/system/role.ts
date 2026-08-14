@@ -1,5 +1,5 @@
 import request from '@/utils/request';
-import type {Menu} from "@/api/menu.ts";
+import type {Menu} from "@/api/system/menu.ts";
 import type {BaseEntity} from "@/api/common.ts";
 import {createCrudApi} from '@/api/crud';
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import {Divider, type MenuProps, Spin} from 'antd';
 import {useAuth} from '@/store/auth/AuthContext';
-import {type Menu} from '@/api/menu';
+import {type Menu} from '../api/system/menu';
 import {Sidebar} from "./components/Sidebar.tsx";
 import {Header} from "./components/Header.tsx";
 import {Content} from "./components/Content.tsx";

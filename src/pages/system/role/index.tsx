@@ -3,25 +3,29 @@ import {Button, Form, Input, message, Modal, Popconfirm, Space, Table, Tree} fro
 import type {SorterResult, TablePaginationConfig} from 'antd/es/table/interface';
 import type {DataNode} from 'antd/es/tree';
 import {DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SearchOutlined} from '@ant-design/icons';
-import roleApi, {type Role, type RoleForm, type RoleSearchForm} from '@/api/role';
-import menuApi, {type Menu} from '@/api/menu';
+import roleApi, {type Role, type RoleForm, type RoleSearchForm} from '@/api/system/role';
+import menuApi, {type Menu} from '@/api/system/menu';
 import type {Sort} from '@/api/common';
 import {Permission} from '@/components/Permission';
 
 const RoleManagement: React.FC = () => {
+    // 搜索
+    const [searchForm] = Form.useForm<RoleSearchForm>();
+
+    // 表格
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<Role[]>([]);
     const [pagination, setPagination] = useState({current: 1, pageSize: 10, total: 0});
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
     const [deletingIds, setDeletingIds] = useState<number[]>([]);
     const [sorts, setSorts] = useState<Sort[]>([{property: 'createdDate', direction: 'desc'}]);
-    const [searchForm] = Form.useForm<RoleSearchForm>();
+
+    // 表单
     const [modalOpen, setModalOpen] = useState(false);
-    const [modalConfirmLoading, setModalConfirmLoading] = useState(false);
     const [modalForm] = Form.useForm<RoleForm>();
+    const [modalConfirmLoading, setModalConfirmLoading] = useState(false);
     const [menuTreeData, setMenuTreeData] = useState<Menu[]>([]);
     const [checkedMenuKeys, setCheckedMenuKeys] = useState<React.Key[]>([]);
-
     const menuTreeNodes: DataNode[] = useMemo(() => {
         function convert(menus: Menu[]): DataNode[] {
             return menus
@@ -31,7 +35,6 @@ const RoleManagement: React.FC = () => {
                     children: menu.children?.length ? convert(menu.children) : undefined,
                 }));
         }
-
         return convert(menuTreeData);
     }, [menuTreeData]);
 

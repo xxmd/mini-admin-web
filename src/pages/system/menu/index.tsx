@@ -1,7 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {Button, Form, Input, InputNumber, message, Modal, Popconfirm, Radio, Space, Table, TreeSelect} from 'antd';
 import {DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined} from '@ant-design/icons';
-import menuApi, {type Menu, type MenuForm, MenuType} from '@/api/menu'
+import menuApi, {type Menu, type MenuForm, MenuType} from '@/api/system/menu'
 import enumApi, {EnumName, type EnumOption} from '@/api/enum'
 import {Permission} from '@/components/Permission';
 
@@ -28,14 +28,19 @@ function convertToOptions(menus: Iterable<Menu>, editingId: number | undefined):
 }
 
 const MenuManagement: React.FC = () => {
+    // 表格
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<Menu[]>([]);
+
+    // 表单
     const [modalOpen, setModalOpen] = useState(false);
-    const [confirmLoading, setConfirmLoading] = useState(false);
     const [form] = Form.useForm<MenuForm>();
-    const [menuTypeOptions, setMenuTypeOptions] = useState<EnumOption[]>([]);
+    const [confirmLoading, setConfirmLoading] = useState(false);
     const [editingId, setEditingId] = useState<number | undefined>(undefined);
     const [deletingIds, setDeletingIds] = useState<number[]>([]);
+
+    // 通用
+    const [menuTypeOptions, setMenuTypeOptions] = useState<EnumOption[]>([]);
 
     function requestTableData() {
         menuApi.findAll().then(menus => {

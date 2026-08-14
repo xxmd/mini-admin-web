@@ -2,24 +2,30 @@ import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {Button, Form, Input, message, Modal, Popconfirm, Radio, Select, Space, Table, Tag,} from 'antd';
 import type {SorterResult, TablePaginationConfig} from 'antd/es/table/interface';
 import {DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SearchOutlined} from '@ant-design/icons';
-import userApi, {type User, type UserForm, type UserSearchForm} from '@/api/user';
-import roleApi, {type SimpleRole} from '@/api/role';
+import userApi, {type User, type UserForm, type UserSearchForm} from '@/api/system/user';
+import roleApi, {type SimpleRole} from '@/api/system/role';
 import type {Sort} from '@/api/common';
 import {Permission} from '@/components/Permission';
 
 const UserManagement: React.FC = () => {
+    // 搜索
+    const [searchForm] = Form.useForm<UserSearchForm>();
+
+    // 表格
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<User[]>([]);
     const [pagination, setPagination] = useState({current: 1, pageSize: 10, total: 0});
-    const [modalOpen, setModalOpen] = useState(false);
-    const [confirmLoading, setConfirmLoading] = useState(false);
-    const [roles, setRoles] = useState<SimpleRole[]>([]);
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
     const [deletingIds, setDeletingIds] = useState<number[]>([]);
     const [sorts, setSorts] = useState<Sort[]>([{property: 'createdDate', direction: 'desc'}]);
-    const [searchForm] = Form.useForm<UserSearchForm>();
-    const [userForm] = Form.useForm<UserForm>();
 
+    // 表单
+    const [modalOpen, setModalOpen] = useState(false);
+    const [userForm] = Form.useForm<UserForm>();
+    const [confirmLoading, setConfirmLoading] = useState(false);
+
+    // 通用
+    const [roles, setRoles] = useState<SimpleRole[]>([]);
     const roleOptions = useMemo(
         () => roles.map(role => ({label: role.label, value: role.id})),
         [roles],

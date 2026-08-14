@@ -6,7 +6,7 @@ import Login from '@/pages/Login';
 import Welcome from '@/pages/Welcome';
 import NotFound from '@/pages/NotFound';
 import {buildDynamicRoutes} from "@/router/dynamicRoutes.tsx";
-import type {Menu} from "@/api/menu.ts";
+import type {Menu} from "../api/system/menu.ts";
 
 function buildStaticRoutes(): RouteObject[] {
     return [
