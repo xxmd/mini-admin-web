@@ -1,6 +1,6 @@
 import request from '@/utils/request';
-import type {Menu} from "@/api/system/menu.ts";
-import type {BaseEntity} from "@/api/common.ts";
+import type {Menu} from "@/api/system/menu";
+import type {BaseEntity} from "@/api/common";
 import {createCrudApi} from '@/api/crud';
 
 export interface Role extends BaseEntity {

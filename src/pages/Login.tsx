@@ -3,7 +3,7 @@ import {App, Form, Input, Button, Card} from 'antd';
 import {UserOutlined, LockOutlined} from '@ant-design/icons';
 import {useSearchParams} from 'react-router-dom';
 import authApi, {type LoginForm} from '@/api/auth';
-import {useAuth} from '../store/auth/AuthContext';
+import {useAuth} from '@/store/auth/AuthContext';
 
 const Login: React.FC = () => {
     const [form] = Form.useForm();

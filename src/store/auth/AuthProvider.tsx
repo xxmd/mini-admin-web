@@ -1,7 +1,7 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import userApi, {type User} from '../../api/system/user';
-import {AuthContext, type AuthContextValue, type AuthState} from "@/store/auth/AuthContext.ts";
-import {type Menu, MenuType} from "../../api/system/menu.ts";
+import userApi, {type User} from '@/api/system/user';
+import {AuthContext, type AuthContextValue, type AuthState} from "@/store/auth/AuthContext";
+import {type Menu, MenuType} from "@/api/system/menu";
 
 function getNavMenuFromUser(user: User): Menu[] {
     const flatMenus = user.roleSet.flatMap(role => role.menuSet);

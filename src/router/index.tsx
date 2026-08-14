@@ -5,8 +5,8 @@ import {AuthGuard} from '@/components/AuthGuard';
 import Login from '@/pages/Login';
 import Welcome from '@/pages/Welcome';
 import NotFound from '@/pages/NotFound';
-import {buildDynamicRoutes} from "@/router/dynamicRoutes.tsx";
-import type {Menu} from "../api/system/menu.ts";
+import {buildDynamicRoutes} from "@/router/dynamicRoutes";
+import type {Menu} from "@/api/system/menu";
 
 function buildStaticRoutes(): RouteObject[] {
     return [

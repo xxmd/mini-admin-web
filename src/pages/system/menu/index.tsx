@@ -1,9 +1,11 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {type FC, useCallback, useEffect, useMemo, useState} from 'react';
 import {Button, Form, Input, InputNumber, message, Modal, Popconfirm, Radio, Space, Table, TreeSelect} from 'antd';
 import {DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined} from '@ant-design/icons';
 import menuApi, {type Menu, type MenuForm, MenuType} from '@/api/system/menu'
 import enumApi, {EnumName, type EnumOption} from '@/api/enum'
 import {Permission} from '@/components/Permission';
+import {useCrudModal} from '@/hooks/useCrudModal';
+import {useBatchDelete} from '@/hooks/useBatchDelete';
 
 interface MenuOption {
     label: string;
@@ -27,17 +29,13 @@ function convertToOptions(menus: Iterable<Menu>, editingId: number | undefined):
     return options;
 }
 
-const MenuManagement: React.FC = () => {
+const MenuManagement: FC = () => {
     // 表格
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<Menu[]>([]);
 
     // 表单
-    const [modalOpen, setModalOpen] = useState(false);
-    const [form] = Form.useForm<MenuForm>();
-    const [confirmLoading, setConfirmLoading] = useState(false);
     const [editingId, setEditingId] = useState<number | undefined>(undefined);
-    const [deletingIds, setDeletingIds] = useState<number[]>([]);
 
     // 通用
     const [menuTypeOptions, setMenuTypeOptions] = useState<EnumOption[]>([]);
@@ -70,6 +68,27 @@ const MenuManagement: React.FC = () => {
         requestMenuTypeOptions();
     }, []);
 
+    // 删除
+    const {deletingIds, deleteByIds} = useBatchDelete({
+        deleteFn: menuApi.delete,
+        onSuccess: refreshTableData,
+    });
+
+    // 表单弹窗
+    const {
+        modalOpen,
+        confirmLoading,
+        form,
+        openCreate,
+        openEdit,
+        close,
+        submit,
+    } = useCrudModal<MenuForm>({
+        create: menuApi.create,
+        update: menuApi.update,
+        onSuccess: refreshTableData,
+    });
+
     const treeMenuOptions = useMemo(() => {
         return convertToOptions(data, editingId);
     }, [data, editingId]);
@@ -85,15 +104,12 @@ const MenuManagement: React.FC = () => {
     );
 
     function handleCreate() {
-        form.resetFields();
-        form.setFieldsValue({type: MenuType.CATEGORY});
+        openCreate({type: MenuType.CATEGORY});
         setEditingId(undefined);
-        setModalOpen(true);
     }
 
     function handleEdit(menu: Menu) {
-        form.resetFields();
-        form.setFieldsValue({
+        openEdit({
             id: menu.id,
             parentId: menu.parentId,
             type: menu.type,
@@ -105,40 +121,7 @@ const MenuManagement: React.FC = () => {
             hidden: menu.hidden,
         });
         setEditingId(menu.id);
-        setModalOpen(true);
     }
-
-    function handleDelete(ids: number[]) {
-        setDeletingIds(ids);
-        menuApi.delete(ids).then(() => {
-            void message.success('删除成功');
-            refreshTableData();
-        }).catch(error => {
-            void message.error('删除失败: ' + error);
-        }).finally(() => {
-            setDeletingIds([]);
-        })
-    }
-
-    const handleSubmit = async () => {
-        try {
-            const values = await form.validateFields();
-            setConfirmLoading(true);
-            if (values.id) {
-                await menuApi.update(values);
-                message.success('修改成功');
-            } else {
-                await menuApi.create(values);
-                message.success('新增成功');
-            }
-            setModalOpen(false);
-            refreshTableData();
-        } catch (error) {
-            void message.error('表单提交失败: ' + error);
-        } finally {
-            setConfirmLoading(false);
-        }
-    };
 
     const columns = [
         {
@@ -182,7 +165,7 @@ const MenuManagement: React.FC = () => {
                             编辑
                         </Button>
                     </Permission>
-                    <Popconfirm title="确认删除该菜单？" onConfirm={() => handleDelete([menu.id])}>
+                    <Popconfirm title="确认删除该菜单？" onConfirm={() => deleteByIds([menu.id])}>
                         <Permission permission="system:menu:delete">
                             <Button type="link" size="small" danger icon={<DeleteOutlined/>}
                                     loading={deletingIds.includes(menu.id)}>
@@ -216,8 +199,8 @@ const MenuManagement: React.FC = () => {
 
             <Modal
                 open={modalOpen}
-                onOk={handleSubmit}
-                onCancel={() => setModalOpen(false)}
+                onOk={submit}
+                onCancel={close}
                 confirmLoading={confirmLoading}
                 destroyOnHidden
             >

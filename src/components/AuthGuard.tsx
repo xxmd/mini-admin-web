@@ -1,6 +1,6 @@
 import React from 'react';
 import {Navigate, useLocation} from 'react-router-dom';
-import {useAuth} from '@/store/auth/AuthContext.ts';
+import {useAuth} from '@/store/auth/AuthContext';
 import {Spin} from 'antd';
 
 interface AuthGuardProps {

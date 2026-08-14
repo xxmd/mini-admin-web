@@ -1,31 +1,47 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {type FC, type Key, useCallback, useEffect, useMemo, useState} from 'react';
 import {Button, Form, Input, message, Modal, Popconfirm, Space, Table, Tree} from 'antd';
-import type {SorterResult, TablePaginationConfig} from 'antd/es/table/interface';
 import type {DataNode} from 'antd/es/tree';
 import {DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SearchOutlined} from '@ant-design/icons';
 import roleApi, {type Role, type RoleForm, type RoleSearchForm} from '@/api/system/role';
 import menuApi, {type Menu} from '@/api/system/menu';
-import type {Sort} from '@/api/common';
+import type {Pageable, Sort} from '@/api/common';
 import {Permission} from '@/components/Permission';
+import {usePagedTable} from '@/hooks/usePagedTable';
+import {useCrudModal} from '@/hooks/useCrudModal';
+import {useBatchDelete} from '@/hooks/useBatchDelete';
+import {auditColumns} from '@/components/AuditColumns';
 
-const RoleManagement: React.FC = () => {
+const RoleManagement: FC = () => {
     // 搜索
     const [searchForm] = Form.useForm<RoleSearchForm>();
 
     // 表格
-    const [loading, setLoading] = useState(true);
-    const [data, setData] = useState<Role[]>([]);
-    const [pagination, setPagination] = useState({current: 1, pageSize: 10, total: 0});
-    const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
-    const [deletingIds, setDeletingIds] = useState<number[]>([]);
-    const [sorts, setSorts] = useState<Sort[]>([{property: 'createdDate', direction: 'desc'}]);
+    const read = useCallback((search: RoleSearchForm, pageable: Pageable, sorts?: Sort[]) =>
+        roleApi.read({label: search.label ?? null}, pageable, sorts), []);
+    const {
+        loading,
+        data,
+        pagination,
+        selectedRowKeys,
+        setSelectedRowKeys,
+        requestTableData,
+        refreshTableData,
+        reset,
+        handleTableChange,
+    } = usePagedTable<Role, RoleSearchForm>({read, searchForm});
+
+    // 删除
+    const {deletingIds, deleteByIds} = useBatchDelete({
+        deleteFn: roleApi.delete,
+        onSuccess: ids => {
+            setSelectedRowKeys(prev => prev.filter(key => !ids.includes(key as number)));
+            refreshTableData();
+        },
+    });
 
     // 表单
-    const [modalOpen, setModalOpen] = useState(false);
-    const [modalForm] = Form.useForm<RoleForm>();
-    const [modalConfirmLoading, setModalConfirmLoading] = useState(false);
     const [menuTreeData, setMenuTreeData] = useState<Menu[]>([]);
-    const [checkedMenuKeys, setCheckedMenuKeys] = useState<React.Key[]>([]);
+    const [checkedMenuKeys, setCheckedMenuKeys] = useState<Key[]>([]);
     const menuTreeNodes: DataNode[] = useMemo(() => {
         function convert(menus: Menu[]): DataNode[] {
             return menus
@@ -35,8 +51,24 @@ const RoleManagement: React.FC = () => {
                     children: menu.children?.length ? convert(menu.children) : undefined,
                 }));
         }
+
         return convert(menuTreeData);
     }, [menuTreeData]);
+
+    const {
+        modalOpen,
+        confirmLoading,
+        form: modalForm,
+        openCreate,
+        openEdit,
+        close,
+        submit,
+    } = useCrudModal<RoleForm>({
+        create: roleApi.create,
+        update: roleApi.update,
+        onSuccess: refreshTableData,
+        transform: values => ({...values, menuIdSet: checkedMenuKeys as number[]}),
+    });
 
     function requestMenuTree() {
         menuApi.findAll().then(menus => {
@@ -46,112 +78,25 @@ const RoleManagement: React.FC = () => {
         });
     }
 
-    const requestTableData = useCallback((page = 1, pageSize = 10, currentSorts?: Sort[]) => {
-        const searchValues = searchForm.getFieldsValue();
-        const params: RoleSearchForm = {
-            label: searchValues.label || null,
-        };
-        roleApi.read(params, {page: page - 1, size: pageSize}, currentSorts ?? sorts).then(pagedData => {
-            setData(pagedData.content);
-            setPagination({
-                current: pagedData.page.number + 1,
-                pageSize: pagedData.page.size,
-                total: pagedData.page.totalElements,
-            });
-        }).catch(error => {
-            void message.error('请求角色数据失败: ' + error);
-        }).finally(() => {
-            setLoading(false);
-        });
-    }, [searchForm, sorts]);
-
-    function refreshTableData() {
-        setLoading(true);
-        requestTableData(1, pagination.pageSize);
-    }
-
-    function handleReset() {
-        searchForm.resetFields();
-        refreshTableData();
-    }
-
     useEffect(() => {
         requestMenuTree();
         requestTableData();
     }, []);
 
     function handleCreateOpen() {
-        modalForm.resetFields();
+        openCreate();
         setCheckedMenuKeys([]);
-        setModalOpen(true);
     }
 
     function handleEditOpen(role: Role) {
         const menuIds = Array.isArray(role.menuSet)
             ? role.menuSet.map(m => m.id)
             : [...(role.menuSet as Set<Menu>)].map(m => m.id);
-        modalForm.setFieldsValue({
-            id: role.id,
-            label: role.label,
-            value: role.value,
+        openEdit({
+            ...role,
+            menuIdSet: menuIds,
         });
         setCheckedMenuKeys(menuIds);
-        setModalOpen(true);
-    }
-
-    const handleModalSubmit = async () => {
-        try {
-            const values = await modalForm.validateFields();
-            setModalConfirmLoading(true);
-            const formData: RoleForm = {
-                ...values,
-                menuIdSet: checkedMenuKeys as number[],
-            };
-            if (formData.id) {
-                await roleApi.update(formData);
-                void message.success('修改成功');
-            } else {
-                await roleApi.create(formData);
-                void message.success('新增成功');
-            }
-            setModalOpen(false);
-            refreshTableData();
-        } catch {
-            void message.error('表单提交失败');
-        } finally {
-            setModalConfirmLoading(false);
-        }
-    };
-
-    function handleDelete(ids: number[]) {
-        setDeletingIds(ids);
-        roleApi.delete(ids).then(() => {
-            void message.success('删除成功');
-            if (ids.some(id => selectedRowKeys.includes(id))) {
-                setSelectedRowKeys(prev => prev.filter(key => !ids.includes(key as number)));
-            }
-            refreshTableData();
-        }).catch(error => {
-            void message.error('删除失败: ' + error);
-        }).finally(() => {
-            setDeletingIds([]);
-        });
-    }
-
-    function handleTableChange(_pagination: TablePaginationConfig, _filters: Record<string, unknown>, sorter: SorterResult<Role> | SorterResult<Role>[]) {
-        const sorterList = Array.isArray(sorter) ? sorter : [sorter];
-        const newSorts: Sort[] = sorterList
-            .filter(s => s.order)
-            .map(s => ({
-                property: (s.columnKey as string) || (s.field as string),
-                direction: s.order === 'ascend' ? 'asc' : 'desc',
-            }));
-        if (newSorts.length === 0) {
-            newSorts.push({property: 'createdDate', direction: 'desc'});
-        }
-        setSorts(newSorts);
-        setLoading(true);
-        requestTableData(_pagination.current ?? 1, _pagination.pageSize ?? 10, newSorts);
     }
 
     const columns = [
@@ -165,32 +110,7 @@ const RoleManagement: React.FC = () => {
             dataIndex: 'value',
             key: 'value',
         },
-        {
-            title: '创建时间',
-            dataIndex: 'createdDate',
-            key: 'createdDate',
-            sorter: true,
-            render: (val: Date) => val ? new Date(val).toLocaleString() : '-',
-        },
-        {
-            title: '创建者',
-            dataIndex: 'createdBy',
-            key: 'createdBy',
-            render: (val: string) => val || '-',
-        },
-        {
-            title: '修改时间',
-            dataIndex: 'modifiedDate',
-            key: 'modifiedDate',
-            sorter: true,
-            render: (val: Date) => val ? new Date(val).toLocaleString() : '-',
-        },
-        {
-            title: '修改者',
-            dataIndex: 'modifiedBy',
-            key: 'modifiedBy',
-            render: (val: string) => val || '-',
-        },
+        ...auditColumns,
         {
             title: '操作',
             key: 'action',
@@ -199,7 +119,7 @@ const RoleManagement: React.FC = () => {
                     <Button type="link" size="small" icon={<EditOutlined/>} onClick={() => handleEditOpen(role)}>
                         编辑
                     </Button>
-                    <Popconfirm title="确认删除该角色？" onConfirm={() => handleDelete([role.id])}>
+                    <Popconfirm title="确认删除该角色？" onConfirm={() => deleteByIds([role.id])}>
                         <Permission permission="system:role:delete">
                             <Button type="link" size="small" danger icon={<DeleteOutlined/>}
                                     loading={deletingIds.includes(role.id)}>
@@ -223,7 +143,7 @@ const RoleManagement: React.FC = () => {
                         <Button type="primary" icon={<SearchOutlined/>} onClick={refreshTableData}>
                             搜索
                         </Button>
-                        <Button icon={<ReloadOutlined/>} onClick={handleReset}>
+                        <Button icon={<ReloadOutlined/>} onClick={reset}>
                             重置
                         </Button>
                     </Space>
@@ -239,7 +159,7 @@ const RoleManagement: React.FC = () => {
                     </Permission>
                     <Permission permission="system:role:delete">
                         <Popconfirm title={`确认删除选中的 ${selectedRowKeys.length} 个角色？`}
-                                    onConfirm={() => handleDelete(selectedRowKeys as number[])}
+                                    onConfirm={() => deleteByIds(selectedRowKeys as number[])}
                                     disabled={selectedRowKeys.length === 0}>
                             <Button danger icon={<DeleteOutlined/>} disabled={selectedRowKeys.length === 0}>
                                 删除
@@ -273,9 +193,9 @@ const RoleManagement: React.FC = () => {
             <Modal
                 forceRender
                 open={modalOpen}
-                onOk={handleModalSubmit}
-                onCancel={() => setModalOpen(false)}
-                confirmLoading={modalConfirmLoading}
+                onOk={submit}
+                onCancel={close}
+                confirmLoading={confirmLoading}
                 destroyOnHidden
                 title="角色信息"
             >

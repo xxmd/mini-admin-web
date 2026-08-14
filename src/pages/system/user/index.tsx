@@ -1,28 +1,54 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {type FC, useEffect, useMemo, useState} from 'react';
 import {Button, Form, Input, message, Modal, Popconfirm, Radio, Select, Space, Table, Tag,} from 'antd';
-import type {SorterResult, TablePaginationConfig} from 'antd/es/table/interface';
 import {DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SearchOutlined} from '@ant-design/icons';
 import userApi, {type User, type UserForm, type UserSearchForm} from '@/api/system/user';
 import roleApi, {type SimpleRole} from '@/api/system/role';
-import type {Sort} from '@/api/common';
 import {Permission} from '@/components/Permission';
+import {usePagedTable} from '@/hooks/usePagedTable';
+import {useCrudModal} from '@/hooks/useCrudModal';
+import {useBatchDelete} from '@/hooks/useBatchDelete';
+import {auditColumns} from '@/components/AuditColumns';
 
-const UserManagement: React.FC = () => {
+const UserManagement: FC = () => {
     // 搜索
     const [searchForm] = Form.useForm<UserSearchForm>();
 
     // 表格
-    const [loading, setLoading] = useState(true);
-    const [data, setData] = useState<User[]>([]);
-    const [pagination, setPagination] = useState({current: 1, pageSize: 10, total: 0});
-    const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
-    const [deletingIds, setDeletingIds] = useState<number[]>([]);
-    const [sorts, setSorts] = useState<Sort[]>([{property: 'createdDate', direction: 'desc'}]);
+    const {
+        loading,
+        data,
+        pagination,
+        selectedRowKeys,
+        setSelectedRowKeys,
+        requestTableData,
+        refreshTableData,
+        reset,
+        handleTableChange,
+    } = usePagedTable<User, UserSearchForm>({
+        read: userApi.read,
+        searchForm,
+    });
+
+    // 删除
+    const {deletingIds, deleteByIds} = useBatchDelete({
+        deleteFn: userApi.delete,
+        onSuccess: refreshTableData,
+    });
 
     // 表单
-    const [modalOpen, setModalOpen] = useState(false);
-    const [userForm] = Form.useForm<UserForm>();
-    const [confirmLoading, setConfirmLoading] = useState(false);
+    const {
+        modalOpen,
+        confirmLoading,
+        form: userForm,
+        openCreate,
+        openEdit,
+        close,
+        submit,
+    } = useCrudModal<UserForm>({
+        create: userApi.create,
+        update: userApi.update,
+        onSuccess: refreshTableData,
+    });
 
     // 通用
     const [roles, setRoles] = useState<SimpleRole[]>([]);
@@ -39,97 +65,20 @@ const UserManagement: React.FC = () => {
         });
     }
 
-    const requestTableData = useCallback((page = 1, pageSize = 10, currentSorts?: Sort[]) => {
-        userApi.read(searchForm.getFieldsValue(), {
-            page: page,
-            size: pageSize
-        }, currentSorts ?? sorts).then(pagedData => {
-            setData(pagedData.content);
-            setPagination({
-                current: pagedData.page.number + 1,
-                pageSize: pagedData.page.size,
-                total: pagedData.page.totalElements,
-            });
-        }).finally(() => {
-            setLoading(false);
-        });
-    }, [searchForm, sorts]);
-
-    function refreshTableData() {
-        setLoading(true);
-        requestTableData(1, pagination.pageSize);
-    }
-
-    function handleReset() {
-        searchForm.resetFields();
-        refreshTableData();
-    }
-
     useEffect(() => {
         requestRoles();
         requestTableData();
     }, []);
 
     function handleCreate() {
-        userForm.resetFields();
-        userForm.setFieldsValue({enabled: true, roleIdSet: []});
-        setModalOpen(true);
+        openCreate({enabled: true, roleIdSet: []});
     }
 
     function handleUpdate(user: User) {
-        userForm.resetFields();
-        userForm.setFieldsValue({
+        openEdit({
             ...user,
             roleIdSet: user.roleSet.map(role => role.id),
         });
-        setModalOpen(true);
-    }
-
-    async function handleDelete(ids: number[]) {
-        try {
-            setDeletingIds(ids);
-            await userApi.delete(ids);
-            refreshTableData();
-        } finally {
-            setDeletingIds([]);
-        }
-    }
-
-    async function handleSubmit() {
-        try {
-            const values = await userForm.validateFields();
-            setConfirmLoading(true);
-            const formData: UserForm = {
-                ...values,
-            };
-            if (formData.id) {
-                await userApi.update(formData);
-                message.success('修改成功');
-            } else {
-                await userApi.create(formData);
-                message.success('新增成功');
-            }
-            setModalOpen(false);
-            refreshTableData();
-        } finally {
-            setConfirmLoading(false);
-        }
-    }
-
-    function handleTableChange(_pagination: TablePaginationConfig, _filters: Record<string, unknown>, sorter: SorterResult<User> | SorterResult<User>[]) {
-        const sorterList = Array.isArray(sorter) ? sorter : [sorter];
-        const newSorts: Sort[] = sorterList
-            .filter(s => s.order)
-            .map(s => ({
-                property: (s.columnKey as string) || (s.field as string),
-                direction: s.order === 'ascend' ? 'asc' : 'desc',
-            }));
-        if (newSorts.length === 0) {
-            newSorts.push({property: 'createdDate', direction: 'desc'});
-        }
-        setSorts(newSorts);
-        setLoading(true);
-        requestTableData(_pagination.current ?? 1, _pagination.pageSize ?? 10, newSorts);
     }
 
     const columns = [
@@ -162,32 +111,7 @@ const UserManagement: React.FC = () => {
                 <Tag color={enabled ? 'green' : 'red'}>{enabled ? '启用' : '禁用'}</Tag>
             ),
         },
-        {
-            title: '创建时间',
-            dataIndex: 'createdDate',
-            key: 'createdDate',
-            sorter: true,
-            render: (val: Date) => val ? new Date(val).toLocaleString() : '-',
-        },
-        {
-            title: '创建者',
-            dataIndex: 'createdBy',
-            key: 'createdBy',
-            render: (val: string) => val || '-',
-        },
-        {
-            title: '修改时间',
-            dataIndex: 'modifiedDate',
-            key: 'modifiedDate',
-            sorter: true,
-            render: (val: Date) => val ? new Date(val).toLocaleString() : '-',
-        },
-        {
-            title: '修改者',
-            dataIndex: 'modifiedBy',
-            key: 'modifiedBy',
-            render: (val: string) => val || '-',
-        },
+        ...auditColumns,
         {
             title: '操作',
             key: 'action',
@@ -199,7 +123,7 @@ const UserManagement: React.FC = () => {
                         </Button>
                     </Permission>
                     <Permission permission="system:user:delete">
-                        <Popconfirm title="确认删除该用户？" onConfirm={() => handleDelete([user.id])}>
+                        <Popconfirm title="确认删除该用户？" onConfirm={() => deleteByIds([user.id])}>
                             <Button type="link" size="small" danger icon={<DeleteOutlined/>}
                                     loading={deletingIds.includes(user.id)}>
                                 删除
@@ -238,10 +162,10 @@ const UserManagement: React.FC = () => {
                 </Form.Item>
                 <Form.Item>
                     <Space>
-                        <Button type="primary" icon={<SearchOutlined/>} onClick={() => refreshTableData()}>
+                        <Button type="primary" icon={<SearchOutlined/>} onClick={refreshTableData}>
                             搜索
                         </Button>
-                        <Button icon={<ReloadOutlined/>} onClick={handleReset}>
+                        <Button icon={<ReloadOutlined/>} onClick={reset}>
                             重置
                         </Button>
                     </Space>
@@ -257,7 +181,7 @@ const UserManagement: React.FC = () => {
                     </Permission>
                     <Permission permission="system:user:delete">
                         <Popconfirm title={`确认删除选中的 ${selectedRowKeys.length} 个用户？`}
-                                    onConfirm={() => handleDelete(selectedRowKeys as number[])}
+                                    onConfirm={() => deleteByIds(selectedRowKeys as number[])}
                                     disabled={selectedRowKeys.length === 0}>
                             <Button danger icon={<DeleteOutlined/>} disabled={selectedRowKeys.length === 0}>
                                 删除
@@ -290,8 +214,8 @@ const UserManagement: React.FC = () => {
 
             <Modal
                 open={modalOpen}
-                onOk={handleSubmit}
-                onCancel={() => setModalOpen(false)}
+                onOk={submit}
+                onCancel={close}
                 confirmLoading={confirmLoading}
                 destroyOnHidden
             >

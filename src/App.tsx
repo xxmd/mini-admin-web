@@ -1,14 +1,16 @@
-import React from 'react';
+import React, {useMemo} from 'react';
 import {RouterProvider} from 'react-router-dom';
 import {App, ConfigProvider, Spin} from 'antd';
 import zhCN from 'antd/locale/zh_CN';
-import {createAppRouter} from './router';
-import {AuthProvider} from './store/auth/AuthProvider.tsx';
-import {useAuth} from "@/store/auth/AuthContext.ts";
+import {createAppRouter} from '@/router';
+import {AuthProvider} from '@/store/auth/AuthProvider';
+import {useAuth} from "@/store/auth/AuthContext";
 import './App.css'
 
 const RouterView: React.FC = () => {
     const {initialized, menus, redirectUrl, clearRedirect} = useAuth();
+
+    const router = useMemo(() => createAppRouter(menus), [menus]);
 
     if (!initialized) {
         return (
@@ -17,8 +19,6 @@ const RouterView: React.FC = () => {
             </div>
         );
     }
-
-    const router = createAppRouter(menus);
 
     if (redirectUrl) {
         clearRedirect();

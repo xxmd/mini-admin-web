@@ -1,6 +1,6 @@
 import request from '@/utils/request';
-import type {BaseEntity} from "@/api/common.ts";
-import {createCrudApi} from "@/api/crud.ts";
+import type {BaseEntity} from "@/api/common";
+import {createCrudApi} from "@/api/crud";
 
 export enum MenuType {
     CATEGORY = 'CATEGORY',

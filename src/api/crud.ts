@@ -1,5 +1,5 @@
 import request from '@/utils/request';
-import type {Pageable, PagedModel, Sort} from "@/api/common.ts";
+import type {Pageable, PagedModel, Sort} from "@/api/common";
 
 interface CrudForm {
     id?: number;

@@ -1,16 +1,33 @@
 import React from 'react';
 import type {RouteObject} from 'react-router-dom';
-import {type Menu} from "../api/system/menu.ts";
+import {type Menu} from "@/api/system/menu";
 
-const pageModules = import.meta.glob('@/pages/**/*.tsx');
+const pageModules = import.meta.glob([
+    '@/pages/**/*.tsx',
+    '!@/pages/Login.tsx',
+    '!@/pages/NotFound.tsx',
+    '!@/pages/Welcome.tsx',
+]);
 
 const componentMap: Record<string, React.LazyExoticComponent<React.FC>> = {};
+const loaderMap: Record<string, () => Promise<unknown>> = {};
+
 Object.entries(pageModules).forEach(([path, loader]) => {
     const match = path.match(/\/pages\/(.+)\.tsx$/);
     if (match) {
+        loaderMap[match[1]] = loader;
         componentMap[match[1]] = React.lazy(loader as () => Promise<{ default: React.FC }>);
     }
 });
+
+export function preloadPages(components: string[]): void {
+    for (const component of components) {
+        const loader = loaderMap[component];
+        if (loader) {
+            void loader();
+        }
+    }
+}
 
 function parseToRouteObjects(menus: Menu[]): RouteObject[] {
     return menus.map(item => {

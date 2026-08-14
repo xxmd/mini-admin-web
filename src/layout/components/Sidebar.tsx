@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {Layout, Menu, type MenuProps} from 'antd';
 import {useLocation, useNavigate} from 'react-router-dom';
 
@@ -12,8 +12,21 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({menus}) => {
     const navigate = useNavigate();
     const location = useLocation();
-    const selectedKeys = useMemo(() => location.pathname.split("/").filter(Boolean), [location.pathname]);
-    const [openKeys, setOpenKeys] = useState<string[]>(() => location.pathname.split("/").filter(Boolean));
+
+    const selectedKeys = useMemo(() => {
+        const segments = location.pathname.split("/").filter(Boolean);
+        const leaf = segments[segments.length - 1];
+        return leaf ? [leaf] : [];
+    }, [location.pathname]);
+
+    const [openKeys, setOpenKeys] = useState<string[]>(() =>
+        location.pathname.split("/").filter(Boolean).slice(0, -1),
+    );
+
+    useEffect(() => {
+        const parentKeys = location.pathname.split("/").filter(Boolean).slice(0, -1);
+        setOpenKeys(prev => Array.from(new Set([...prev, ...parentKeys])));
+    }, [location.pathname]);
 
     return (
         <Sider>

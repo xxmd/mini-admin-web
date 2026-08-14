@@ -1,6 +1,6 @@
 import request from '@/utils/request';
-import type {Role} from "@/api/system/role.ts";
-import type {BaseEntity} from "@/api/common.ts";
+import type {Role} from "@/api/system/role";
+import type {BaseEntity} from "@/api/common";
 import {createCrudApi} from '@/api/crud';
 
 export interface User extends BaseEntity {

@@ -1,6 +1,6 @@
 import {createContext, useContext} from 'react';
-import {type User} from '../../api/system/user';
-import type {Menu} from "../../api/system/menu.ts";
+import {type User} from '@/api/system/user';
+import type {Menu} from "@/api/system/menu";
 
 export interface AuthState {
     token: string | null;

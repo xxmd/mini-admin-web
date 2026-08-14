@@ -2,9 +2,9 @@ import React, {useMemo, useState} from 'react';
 import {App, Breadcrumb, Dropdown, Form, Input, Modal} from 'antd';
 import {EditOutlined, KeyOutlined, LogoutOutlined} from '@ant-design/icons';
 import {useLocation, useNavigate} from 'react-router-dom';
-import {useAuth} from '@/store/auth/AuthContext.ts';
-import {type Menu} from '../../api/system/menu';
-import userApi, {type UserPasswordForm, type UserProfileForm} from '../../api/system/user';
+import {useAuth} from '@/store/auth/AuthContext';
+import {type Menu} from '@/api/system/menu';
+import userApi, {type UserPasswordForm, type UserProfileForm} from '@/api/system/user';
 
 function findBreadcrumbPath(menus: Menu[], pathname: string, parentPath = ''): Menu[] {
     for (const menu of menus) {
