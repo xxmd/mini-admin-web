@@ -11,8 +11,10 @@ export interface LoginResponse {
     data: Record<string, unknown>;
 }
 
+const BASE_PATH = '/api/auth';
+
 export default {
     login(data: LoginForm): Promise<LoginResponse> {
-        return request.post('/auth/login', data);
+        return request.post(`${BASE_PATH}/login`, data);
     },
 };

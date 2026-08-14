@@ -37,7 +37,7 @@ export interface MenuSearchForm {
     parentId?: number | null;
 }
 
-const BASE_PATH = '/system/menu';
+const BASE_PATH = '/api/system/menu';
 
 const crud = createCrudApi<Menu, MenuForm, MenuSearchForm>(BASE_PATH);
 

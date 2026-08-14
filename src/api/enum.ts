@@ -9,8 +9,10 @@ export enum EnumName {
     MenuType = 'MenuType',
 }
 
+const BASE_PATH = '/api/enum';
+
 export default {
     get(name: EnumName): Promise<EnumOption[]> {
-        return request.get(`/enum/${name}`);
+        return request.get(`${BASE_PATH}/${name}`);
     },
 };

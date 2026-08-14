@@ -36,7 +36,7 @@ export interface UserPasswordForm {
     confirmPassword: string;
 }
 
-const BASE_PATH = '/system/user';
+const BASE_PATH = '/api/system/user';
 
 
 const crud = createCrudApi<User, UserForm, UserSearchForm>(BASE_PATH);
