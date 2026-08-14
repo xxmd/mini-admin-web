@@ -1,12 +1,10 @@
 import React from 'react';
 import {useAuth} from '@/store/auth/AuthContext';
-import {MenuType} from '@/api/menu';
 
 function usePermission() {
     const {user} = useAuth();
     const permissionSet = new Set(
         user?.roleSet.flatMap(role => role.menuSet)
-            .filter(menu => menu.type === MenuType.BUTTON)
             .map(menu => menu.permission) ?? [],
     );
 
