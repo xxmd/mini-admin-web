@@ -30,7 +30,7 @@ export function CrudModal<F>({open, confirmLoading, onOk, onCancel, form, title,
             <Form
                 form={form}
                 layout="horizontal"
-                labelAlign="left"
+                labelAlign="right"
                 labelCol={{span: labelCol}}
                 wrapperCol={{span: wrapperCol}}
                 style={{marginTop: 16}}
