@@ -25,7 +25,7 @@ export interface SimpleRole {
     label: string;
 }
 
-const BASE_PATH = '/api/system/role';
+const BASE_PATH = '/system/role';
 
 const crud = createCrudApi<Role, RoleForm, RoleSearchForm>(BASE_PATH);
 
